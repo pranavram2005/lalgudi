@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { useLang } from '../context/LangContext'
 import { C } from '../data'
 import { Footer } from '../components/ui'
+import { useBreakpoint } from '../hooks/useBreakpoint'
 import data from '../voters/output_with_roof_laalgui.jsx'
 
 const Btn = ({ children, onClick, variant = 'o', style }) => {  
@@ -16,8 +17,8 @@ const Btn = ({ children, onClick, variant = 'o', style }) => {
   )
 }
 
-const FilterGroup = ({ label, children }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+const FilterGroup = ({ label, children, compact }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? '.6rem' : '10px' }}>
     <label style={{
       color: C.ink3,
       fontSize: '12px',
@@ -27,13 +28,13 @@ const FilterGroup = ({ label, children }) => (
     }}>
       {label}
     </label>
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'stretch' }}>
+    <div style={{ display: 'flex', flexDirection: compact ? 'column' : 'row', flexWrap: 'wrap', gap: compact ? '.8rem' : '1rem', alignItems: 'stretch' }}>
       {children}
     </div>
   </div>
 );
 
-const MultiSelect = ({ options = [], selected, onChange }) => (
+const MultiSelect = ({ options = [], selected, onChange, compact }) => (
   <div style={{
     maxHeight: '140px',
     overflowY: 'auto',
@@ -42,7 +43,7 @@ const MultiSelect = ({ options = [], selected, onChange }) => (
     border: `1px solid ${C.line}`,
     borderRadius: '6px',
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gridTemplateColumns: compact ? 'repeat(auto-fit, minmax(160px, 1fr))' : 'repeat(auto-fit, minmax(200px, 1fr))',
     gap: '8px'
   }}>
     {options.map(({ value, label, count }) => (
@@ -72,8 +73,8 @@ const MultiSelect = ({ options = [], selected, onChange }) => (
   </div>
 );
 
-const FilterField = ({ title, children }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 0 220px', minWidth: 220 }}>
+const FilterField = ({ title, children, compact }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: compact ? '1 0 100%' : '1 0 220px', minWidth: compact ? '100%' : 220 }}>
     <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: '.6rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink3 }}>
       {title}
     </span>
@@ -83,6 +84,7 @@ const FilterField = ({ title, children }) => (
 
 export default function Voters() {
   const { t } = useLang()
+  const { isTablet } = useBreakpoint()
   const [voters, setVoters] = useState(() => data.map(row => ({ ...row, notes: '' })))
   const [filters, setFilters] = useState({
     constituency: '',
@@ -271,15 +273,15 @@ export default function Voters() {
     </th>
   )
 
-  const selStyle = { background: C.white, border: `1px solid ${C.line}`, color: C.ink, padding: '6px 9px', borderRadius: 4, fontFamily: "'Outfit',sans-serif", fontSize: '.77rem', outline: 'none', appearance: 'none', minWidth: 110 }
+  const selStyle = { background: C.white, border: `1px solid ${C.line}`, color: C.ink, padding: '6px 9px', borderRadius: 4, fontFamily: "'Outfit',sans-serif", fontSize: '.77rem', outline: 'none', appearance: 'none', minWidth: 110, width: '100%', maxWidth: '100%' }
 
   return (
     <div style={{ paddingTop: 96 }}>
       {/* Filter bar */}
       <div style={{ background: C.line2, borderBottom: `1px solid ${C.line}`, padding: '1.5rem' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <FilterGroup label={t('Location Filters', 'இடம் வடிகட்டிகள்')}>
-            <FilterField title={t('Constituency','தொகுதி')}>
+          <FilterGroup label={t('Location Filters', 'இடம் வடிகட்டிகள்')} compact={isTablet}>
+            <FilterField title={t('Constituency','தொகுதி')} compact={isTablet}>
               <select value={filters.constituency} onChange={e => setFilter('constituency', e.target.value)} style={selStyle}>
                 <option value="">{t('All Constituencies','அனைத்து தொகுதிகள்')}</option>
                 {valueOptions.constituency.map(({ value, label, count }) => (
@@ -287,40 +289,43 @@ export default function Voters() {
                 ))}
               </select>
             </FilterField>
-            <FilterField title={t('Division','பிரிவு')}>
+            <FilterField title={t('Division','பிரிவு')} compact={isTablet}>
               <MultiSelect
                 options={valueOptions.division}
                 selected={filters.division}
                 onChange={(val) => handleMultiSelectChange('division', val)}
+                compact={isTablet}
               />
             </FilterField>
-            <FilterField title={t('Ward','வார்டு')}>
+            <FilterField title={t('Ward','வார்டு')} compact={isTablet}>
               <MultiSelect
                 options={valueOptions.ward}
                 selected={filters.ward}
                 onChange={(val) => handleMultiSelectChange('ward', val)}
+                compact={isTablet}
               />
             </FilterField>
-            <FilterField title={t('Village','கிராமம்')}>
+            <FilterField title={t('Village','கிராமம்')} compact={isTablet}>
               <MultiSelect
                 options={valueOptions.village}
                 selected={filters.village}
                 onChange={(val) => handleMultiSelectChange('village', val)}
+                compact={isTablet}
               />
             </FilterField>
           </FilterGroup>
 
-          <FilterGroup label={t('Personal Filters', 'தனிப்பட்ட வடிகட்டிகள்')}>
-            <FilterField title={t('Search Name','பெயர் தேடல்')}>
+          <FilterGroup label={t('Personal Filters', 'தனிப்பட்ட வடிகட்டிகள்')} compact={isTablet}>
+            <FilterField title={t('Search Name','பெயர் தேடல்')} compact={isTablet}>
               <input value={filters.search} onChange={e => setFilter('search', e.target.value)} placeholder={t('Type name…','பெயர் உள்ளிடவும்…')} style={{ ...selStyle, minWidth: 'unset', width: '100%' }} />
             </FilterField>
-            <FilterField title={t('Electoral ID','வாக்காளர் எண்')}>
+            <FilterField title={t('Electoral ID','வாக்காளர் எண்')} compact={isTablet}>
               <input value={filters.idSearch} onChange={e => setFilter('idSearch', e.target.value)} placeholder={t('Search ID…','ID தேட…')} style={{ ...selStyle, minWidth: 'unset', width: '100%' }} />
             </FilterField>
-            <FilterField title={t('House Number','வீட்டு எண்')}>
+            <FilterField title={t('House Number','வீட்டு எண்')} compact={isTablet}>
               <input value={filters.houseNo} onChange={e => setFilter('houseNo', e.target.value)} placeholder={t('House No…','வீட்டு எண்…')} style={{ ...selStyle, minWidth: 'unset', width: '100%' }} />
             </FilterField>
-            <FilterField title={t('Gender','பாலினம்')}>
+            <FilterField title={t('Gender','பாலினம்')} compact={isTablet}>
               <select value={filters.gender} onChange={e => setFilter('gender', e.target.value)} style={selStyle}>
                 <option value="">{t('All Genders','அனைத்து பாலினங்களும்')}</option>
                 {valueOptions.gender.map(({ value, label, count }) => (
@@ -336,7 +341,7 @@ export default function Voters() {
       </div>
 
       {/* Stats chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.35rem', padding: '.6rem 1.5rem', background: C.white, borderBottom: `1px solid ${C.line}` }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.35rem', padding: '.6rem 1.5rem', background: C.white, borderBottom: `1px solid ${C.line}`, justifyContent: isTablet ? 'center' : 'flex-start' }}>
         {[
           [t('Total','மொத்தம்'), stats.total],
           [t('Showing','காட்டுகிறது'), stats.showing],

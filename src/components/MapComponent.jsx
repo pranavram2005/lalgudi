@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { C, VILLAGES, INFRA_MARKERS, COMM_ZONES, BOOTH_SAMPLES, HEAT_ZONES } from '../data'
+import { useBreakpoint } from '../hooks/useBreakpoint'
 
 const LAYER_CONFIG = [
   { key: 'comm',  label: 'Community Zones',    color: C.g500,    defaultOn: true  },
@@ -57,6 +58,7 @@ export default function MapComponent() {
   const layerGroups = useRef({})
   const [layers, setLayers] = useState(() => Object.fromEntries(LAYER_CONFIG.map(l => [l.key, l.defaultOn])))
   const [leafletReady, setLeafletReady] = useState(!!window.L)
+  const { isTablet, isMobile } = useBreakpoint()
 
   // Load Leaflet if not already loaded
   useEffect(() => {
@@ -186,8 +188,75 @@ export default function MapComponent() {
     }
   }
 
+  const statsCard = (
+    <div style={{
+      background: 'rgba(255,255,255,.97)',
+      border: `1px solid ${C.line}`,
+      borderRadius: 10,
+      padding: '.85rem 1rem',
+      width: isTablet ? '100%' : 190,
+      maxWidth: isTablet ? '100%' : 220,
+      boxShadow: isTablet ? '0 2px 10px rgba(0,0,0,.05)' : '0 4px 20px rgba(0,0,0,.1)',
+    }}>
+      <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: '.6rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: C.ink3, marginBottom: '.5rem', borderBottom: `1px solid ${C.line}`, paddingBottom: '.4rem' }}>AC-143 Stats</div>
+      {[['Electorate','2,18,131',''],['2021 Turnout','79.56%',''],['DMK 2021','84,914','r'],['AIADMK 2021','67,965','g'],['NTK Pool','16,248','au'],['Gap to Close','16,949','r'],['Booths','300','']].map(([l, v, c]) => (
+        <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '.18rem 0', borderBottom: `1px dashed ${C.line}` }}>
+          <span style={{ fontSize: '.63rem', color: C.ink3 }}>{l}</span>
+          <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: '.72rem', fontWeight: 700, color: c === 'g' ? C.g600 : c === 'r' ? C.red : c === 'au' ? C.au : C.ink }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  )
+
+  const legendCard = (
+    <div style={{
+      background: 'rgba(255,255,255,.97)',
+      border: `1px solid ${C.line}`,
+      borderRadius: 10,
+      padding: '1rem 1.1rem',
+      minWidth: isTablet ? '100%' : 200,
+      maxHeight: isTablet ? 'unset' : '60vh',
+      overflowY: isTablet ? 'visible' : 'auto',
+      boxShadow: isTablet ? '0 2px 10px rgba(0,0,0,.05)' : '0 4px 20px rgba(0,0,0,.1)',
+    }}>
+      <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: '.65rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: C.ink3, marginBottom: '.6rem', borderBottom: `1px solid ${C.line}`, paddingBottom: '.4rem' }}>Legend</div>
+      {layers.comm && (
+        <>
+          <div style={{ fontSize: '.58rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink4, marginBottom: '.3rem' }}>Community Zones</div>
+          {[['rgba(46,132,79,.4)','Muthuraja Belt'],['rgba(200,160,48,.4)','Udaiyar / DMK Zone'],['rgba(26,111,168,.4)','Christian Area'],['rgba(191,60,60,.35)','Dalit/SC Belt'],['rgba(108,60,168,.35)','Thevar Zone']].map(([bg, lbl]) => (
+            <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '.2rem 0', fontSize: '.7rem', color: C.ink2 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: bg, flexShrink: 0, display: 'block' }} />{lbl}
+            </div>
+          ))}
+        </>
+      )}
+      {layers.booth && (
+        <>
+          <div style={{ fontSize: '.58rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink4, marginTop: '.6rem', marginBottom: '.3rem' }}>Booth Priority</div>
+          {[[C.g500,'AIADMK Lean'],['#e07a20','Swing Zone'],[C.red,'DMK Lean']].map(([col, lbl]) => (
+            <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '.2rem 0', fontSize: '.7rem', color: C.ink2 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: col + '55', border: `2px solid ${col}`, flexShrink: 0, display: 'block' }} />{lbl}
+            </div>
+          ))}
+        </>
+      )}
+      {layers.infra && (
+        <>
+          <div style={{ fontSize: '.58rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink4, marginTop: '.6rem', marginBottom: '.3rem' }}>Infrastructure</div>
+          {[['🌉','Missing bridge'],['🚆','Railway demand'],['🛣️','Road gap'],['💧','Water/irrigation']].map(([icon, lbl]) => (
+            <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '.18rem 0', fontSize: '.7rem', color: C.ink2 }}>
+              <span style={{ fontSize: '.9rem' }}>{icon}</span>{lbl}
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  )
+
+  const mapHeight = isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 96px)'
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 96px)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: mapHeight, overflow: 'hidden' }}>
       {/* Toolbar */}
       <div style={{ background: C.white, borderBottom: `1px solid ${C.line}`, padding: '.55rem 1rem', display: 'flex', gap: '.35rem', alignItems: 'center', flexWrap: 'wrap', flexShrink: 0, boxShadow: '0 1px 6px rgba(0,0,0,.04)' }}>
         {LAYER_CONFIG.map(l => (
@@ -210,6 +279,13 @@ export default function MapComponent() {
         }}>⌖ Reset View</button>
       </div>
 
+      {isTablet && (
+        <div style={{ background: C.line2, borderBottom: `1px solid ${C.line}`, padding: '.8rem 1rem', display: 'grid', gap: '.8rem' }}>
+          {statsCard}
+          {legendCard}
+        </div>
+      )}
+
       {/* Map + Overlays */}
       <div style={{ flex: 1, position: 'relative' }}>
         {!leafletReady && (
@@ -222,56 +298,17 @@ export default function MapComponent() {
         )}
         <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
 
-        {/* Stats overlay */}
-        <div style={{ position: 'absolute', top: '.8rem', left: '.8rem', zIndex: 900, background: 'rgba(255,255,255,.97)', border: `1px solid ${C.line}`, borderRadius: 10, padding: '.85rem 1rem', width: 190, boxShadow: '0 4px 20px rgba(0,0,0,.1)' }}>
-          <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: '.6rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: C.ink3, marginBottom: '.5rem', borderBottom: `1px solid ${C.line}`, paddingBottom: '.4rem' }}>AC-143 Stats</div>
-          {[['Electorate','2,18,131',''],['2021 Turnout','79.56%',''],['DMK 2021','84,914','r'],['AIADMK 2021','67,965','g'],['NTK Pool','16,248','au'],['Gap to Close','16,949','r'],['Booths','300','']].map(([l, v, c]) => (
-            <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '.18rem 0', borderBottom: `1px dashed ${C.line}` }}>
-              <span style={{ fontSize: '.63rem', color: C.ink3 }}>{l}</span>
-              <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: '.72rem', fontWeight: 700, color: c === 'g' ? C.g600 : c === 'r' ? C.red : c === 'au' ? C.au : C.ink }}>{v}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Legend */}
-        <div style={{ position: 'absolute', bottom: '2rem', right: '.8rem', zIndex: 900, background: 'rgba(255,255,255,.97)', border: `1px solid ${C.line}`, borderRadius: 10, padding: '1rem 1.1rem', minWidth: 200, maxHeight: '60vh', overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,.1)' }}>
-          <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: '.65rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: C.ink3, marginBottom: '.6rem', borderBottom: `1px solid ${C.line}`, paddingBottom: '.4rem' }}>Legend</div>
-          {layers.comm && (
-            <>
-              <div style={{ fontSize: '.58rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink4, marginBottom: '.3rem' }}>Community Zones</div>
-              {[['rgba(46,132,79,.4)','Muthuraja Belt'],['rgba(200,160,48,.4)','Udaiyar / DMK Zone'],['rgba(26,111,168,.4)','Christian Area'],['rgba(191,60,60,.35)','Dalit/SC Belt'],['rgba(108,60,168,.35)','Thevar Zone']].map(([bg, lbl]) => (
-                <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '.2rem 0', fontSize: '.7rem', color: C.ink2 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 2, background: bg, flexShrink: 0, display: 'block' }} />{lbl}
-                </div>
-              ))}
-            </>
-          )}
-          {layers.booth && (
-            <>
-              <div style={{ fontSize: '.58rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink4, marginTop: '.6rem', marginBottom: '.3rem' }}>Booth Priority</div>
-              {[[C.g500,'AIADMK Lean'],['#e07a20','Swing Zone'],[C.red,'DMK Lean']].map(([col, lbl]) => (
-                <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '.2rem 0', fontSize: '.7rem', color: C.ink2 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: col + '55', border: `2px solid ${col}`, flexShrink: 0, display: 'block' }} />{lbl}
-                </div>
-              ))}
-            </>
-          )}
-          {layers.infra && (
-            <>
-              <div style={{ fontSize: '.58rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink4, marginTop: '.6rem', marginBottom: '.3rem' }}>Infrastructure</div>
-              {[['🌉','Missing bridge'],['🚆','Railway demand'],['🛣️','Road gap'],['💧','Water/irrigation']].map(([icon, lbl]) => (
-                <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '.18rem 0', fontSize: '.7rem', color: C.ink2 }}>
-                  <span style={{ fontSize: '.9rem' }}>{icon}</span>{lbl}
-                </div>
-              ))}
-            </>
-          )}
-        </div>
+        {!isTablet && (
+          <>
+            <div style={{ position: 'absolute', top: '.8rem', left: '.8rem', zIndex: 900 }}>{statsCard}</div>
+            <div style={{ position: 'absolute', bottom: '2rem', right: '.8rem', zIndex: 900 }}>{legendCard}</div>
+          </>
+        )}
 
         {/* Bottom bar */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: C.g900, padding: '.3rem .8rem', display: 'flex', gap: '1.2rem', zIndex: 900, flexWrap: 'wrap' }}>
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: C.g900, padding: '.3rem .8rem', display: 'flex', gap: '1.2rem', zIndex: 900, flexWrap: 'wrap', justifyContent: isTablet ? 'center' : 'flex-start' }}>
           {['Lalgudi AC-143 · Tiruchirappalli District · Tamil Nadu','Centre: 10.879°N, 78.812°E','⚠️ Approximate boundaries — for campaign planning only · Not official ECI data'].map((t, i) => (
-            <span key={i} style={{ fontSize: '.6rem', color: 'rgba(255,255,255,.35)' }}>{t}</span>
+            <span key={i} style={{ fontSize: '.6rem', color: 'rgba(255,255,255,.35)', textAlign: 'center' }}>{t}</span>
           ))}
         </div>
       </div>

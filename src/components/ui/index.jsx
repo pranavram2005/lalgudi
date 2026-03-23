@@ -1,4 +1,5 @@
 import { C } from '../../data'
+import { useBreakpoint } from '../../hooks/useBreakpoint'
 
 // ─── LABEL ────────────────────────────────────────────────────────────────────
 export const Label = ({ children, light, style }) => (
@@ -25,7 +26,7 @@ export const Heading = ({ children, style }) => (
 
 // ─── CARD ────────────────────────────────────────────────────────────────────
 export const Card = ({ children, style, variant }) => {
-  const base = { background: C.white, border: `1px solid ${C.line}`, borderRadius: 8, padding: '1.3rem', transition: 'box-shadow .2s,border-color .2s' }
+  const base = { background: C.white, border: `1px solid ${C.line}`, borderRadius: 8, padding: 'clamp(1rem,3vw,1.3rem)', transition: 'box-shadow .2s,border-color .2s' }
   const variants = {
     dark:  { background: C.g800, borderColor: C.g800 },
     sl:    { borderLeft: `3px solid ${C.g500}` },
@@ -99,38 +100,68 @@ export const Insight = ({ children, title, variant }) => {
 }
 
 // ─── GRID ────────────────────────────────────────────────────────────────────
-export const Grid = ({ cols = 2, gap = '1rem', children, style }) => (
-  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols},1fr)`, gap, ...style }}>
-    {children}
-  </div>
-)
+export const Grid = ({ cols = 2, gap = '1rem', children, style, stackAt = 1024, singleAt = 640 }) => {
+  const { width } = useBreakpoint()
+  let currentCols = cols
+  if (width <= singleAt) currentCols = 1
+  else if (width <= stackAt) currentCols = Math.min(2, cols)
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${currentCols},1fr)`, gap, ...style }}>
+      {children}
+    </div>
+  )
+}
 
 // ─── SECTION WRAPPER ─────────────────────────────────────────────────────────
 export const Section = ({ children, style }) => (
-  <div style={{ padding: '3rem 0', borderTop: `1px solid ${C.line}`, ...style }}>
+  <div style={{ padding: 'clamp(2rem,5vw,3rem) 0', borderTop: `1px solid ${C.line}`, ...style }}>
     {children}
   </div>
 )
 
 // ─── PAGE WRAP ────────────────────────────────────────────────────────────────
 export const Wrap = ({ children }) => (
-  <div style={{ maxWidth: 1140, margin: '0 auto', padding: '0 1.6rem' }}>
+  <div style={{ maxWidth: 1140, margin: '0 auto', padding: '0 clamp(1rem,4vw,1.8rem)' }}>
     {children}
   </div>
 )
 
 // ─── STAT BAR ────────────────────────────────────────────────────────────────
-export const StatBar = ({ stats }) => (
-  <div style={{ background: C.g900, display: 'grid', gridTemplateColumns: `repeat(${stats.length},1fr)` }}>
-    {stats.map(({ n, l, s }, i) => (
-      <div key={i} style={{ padding: '1.3rem 1rem', borderRight: `1px solid rgba(255,255,255,.05)`, textAlign: 'center', borderRight: i < stats.length - 1 ? `1px solid rgba(255,255,255,.05)` : 'none' }}>
-        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: '1.9rem', fontWeight: 900, color: C.au2, lineHeight: 1, marginBottom: '.2rem' }}>{n}</div>
-        <div style={{ fontSize: '.63rem', color: 'rgba(255,255,255,.42)', letterSpacing: '.06em', textTransform: 'uppercase' }}>{l}</div>
-        {s && <div style={{ fontSize: '.58rem', color: 'rgba(255,255,255,.22)', marginTop: '.1rem' }}>{s}</div>}
-      </div>
-    ))}
-  </div>
-)
+export const StatBar = ({ stats }) => {
+  const { width } = useBreakpoint()
+  const singleColumn = width <= 640
+  const stacked = width <= 1024
+  const cols = singleColumn ? 1 : stacked ? Math.min(2, stats.length) : stats.length
+  const totalRows = Math.ceil(stats.length / cols)
+
+  return (
+    <div style={{ background: C.g900, display: 'grid', gridTemplateColumns: `repeat(${cols},1fr)` }}>
+      {stats.map(({ n, l, s }, i) => {
+        const colIndex = i % cols
+        const rowIndex = Math.floor(i / cols)
+        const isLastColumn = colIndex === cols - 1
+        const isLastRow = rowIndex === totalRows - 1
+
+        return (
+          <div
+            key={i}
+            style={{
+              padding: '1.3rem 1rem',
+              borderRight: !stacked && !isLastColumn ? '1px solid rgba(255,255,255,.05)' : 'none',
+              borderBottom: stacked && !isLastRow ? '1px solid rgba(255,255,255,.05)' : 'none',
+              textAlign: singleColumn ? 'left' : 'center',
+            }}
+          >
+            <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: '1.9rem', fontWeight: 900, color: C.au2, lineHeight: 1, marginBottom: '.2rem' }}>{n}</div>
+            <div style={{ fontSize: '.63rem', color: 'rgba(255,255,255,.42)', letterSpacing: '.06em', textTransform: 'uppercase' }}>{l}</div>
+            {s && <div style={{ fontSize: '.58rem', color: 'rgba(255,255,255,.22)', marginTop: '.1rem' }}>{s}</div>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 // ─── FOOTER ──────────────────────────────────────────────────────────────────
 export const Footer = () => (

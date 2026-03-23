@@ -3,15 +3,81 @@ import { useNavigate } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { C, ELECTION_DATA } from '../data'
 import { Label, Heading, Card, ProgBar, Chip, Insight, Grid, Section, Wrap, StatBar, Footer } from '../components/ui'
+import { useBreakpoint } from '../hooks/useBreakpoint'
 
 export default function Overview() {
   const { t } = useLang()
   const navigate = useNavigate()
   const [animated, setAnimated] = useState(false)
+  const { isTablet, isMobile } = useBreakpoint()
   useEffect(() => { const id = setTimeout(() => setAnimated(true), 200); return () => clearTimeout(id) }, [])
   const PB = (props) => <ProgBar {...props} animated={animated} />
 
   const latest = ELECTION_DATA[ELECTION_DATA.length - 1]
+  const primaryCTAs = (
+    <div style={{
+      position: isTablet ? 'static' : 'absolute',
+      left: isTablet ? 'auto' : '50%',
+      top: isTablet ? 'auto' : '30%',
+      transform: isTablet ? 'none' : 'translate(-50%, -50%)',
+      display: 'flex',
+      gap: '.6rem',
+      padding: isTablet ? '.4rem 0' : '.35rem .5rem',
+      borderRadius: 10,
+      background: isTablet ? 'transparent' : 'rgba(0,0,0,.22)',
+      boxShadow: isTablet ? 'none' : '0 10px 28px rgba(0,0,0,.45)',
+      zIndex: 3,
+      justifyContent: isTablet ? 'center' : 'flex-start',
+      flexWrap: 'wrap',
+    }}>
+      <button
+        onClick={() => navigate('/map')}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          fontFamily: "'Outfit',sans-serif",
+          fontSize: isTablet ? '.78rem' : '.9rem',
+          fontWeight: 800,
+          letterSpacing: '.08em',
+          textTransform: 'uppercase',
+          padding: isTablet ? '8px 14px' : '8px 18px',
+          borderRadius: 8,
+          cursor: 'pointer',
+          border: `2px solid ${C.au2}`,
+          background: 'transparent',
+          color: C.au2,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {t('Field Map 🗺️','வரைபடம் 🗺️')}
+      </button>
+      <button
+        onClick={() => navigate('/voters')}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          fontFamily: "'Outfit',sans-serif",
+          fontSize: isTablet ? '.78rem' : '.9rem',
+          fontWeight: 800,
+          letterSpacing: '.08em',
+          textTransform: 'uppercase',
+          padding: isTablet ? '8px 14px' : '8px 18px',
+          borderRadius: 8,
+          cursor: 'pointer',
+          border: '2px solid #ffffff',
+          background: 'transparent',
+          color: '#ffffff',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {t('Voter List','வாக்காளர் பட்டியல்')}
+      </button>
+    </div>
+  )
 
   return (
     <div style={{ paddingTop: 96 }}>
@@ -19,8 +85,8 @@ export default function Overview() {
       <div style={{ background: C.g800, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 600px 380px at 18% 55%,rgba(46,132,79,.22) 0%,transparent 65%),radial-gradient(ellipse 380px 260px at 78% 18%,rgba(200,160,48,.1) 0%,transparent 60%)', pointerEvents: 'none' }} />
         <Wrap>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', minHeight: 460, position: 'relative', zIndex: 1 }}>
-            <div style={{ padding: '3.5rem 1.8rem 3.5rem 0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : 'minmax(0,1fr) 460px', minHeight: isTablet ? 'auto' : 460, position: 'relative', zIndex: 1, columnGap: isTablet ? '2rem' : '3rem', rowGap: isTablet ? '2rem' : 0 }}>
+            <div style={{ padding: isTablet ? '2.5rem 0 2rem' : '3.5rem 2.4rem 3.5rem 0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               {/* Pills */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: '1.3rem' }}>
                 {[
@@ -54,7 +120,7 @@ export default function Overview() {
               </p>
 
               {/* Meta grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 1, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.09)', borderRadius: 8, overflow: 'hidden', maxWidth: 370, marginBottom: '1.3rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)', gap: 1, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.09)', borderRadius: 8, overflow: 'hidden', maxWidth: 370, marginBottom: '1.3rem' }}>
                 {[
                   [t('AIADMK Candidate','அதிமுக வேட்பாளர்'), 'Dr. M. Leema Rose Martin'],
                   [t('Alliance','கூட்டணி'), 'AIADMK + BJP + PMK'],
@@ -77,12 +143,12 @@ export default function Overview() {
             </div>
 
             {/* Candidate photo */}
-            <div style={{ position: 'relative', overflow: 'hidden', borderLeft: '1px solid rgba(255,255,255,.07)' }}>
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,#143320 0%,transparent 38%),linear-gradient(to top,#143320 0%,transparent 28%)', zIndex: 1 }} />
+            <div style={{ position: 'relative', overflow: 'hidden', borderLeft: isTablet ? 'none' : '1px solid rgba(255,255,255,.07)', borderRadius: isTablet ? 12 : 0, minHeight: isTablet ? 320 : 420, maxHeight: isTablet ? 480 : 540, background: 'rgba(255,255,255,.03)', transform: isTablet ? 'none' : 'translateX(100px)' }}>
+              <div style={{ position: isTablet ? 'absolute' : 'absolute', inset: 0, background: 'linear-gradient(to right,#143320 0%,transparent 38%),linear-gradient(to top,#143320 0%,transparent 28%)', zIndex: 1 }} />
               <img
-                src="/images/L1.png"
+                src="/images/aiadmk.png"
                 alt="Dr. M. Leema Rose Martin"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block', transform: 'scale(.85)', transformOrigin: 'center top' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block', transform: isTablet ? 'none' : 'scale(.78)', transformOrigin: 'center top' }}
                 onError={e => { e.target.parentElement.style.background = 'rgba(255,255,255,.04)'; e.target.style.display = 'none' }}
               />
               <div style={{ position: 'absolute', bottom: '1.4rem', left: 0, right: 0, zIndex: 2, textAlign: 'center' }}>
@@ -90,68 +156,9 @@ export default function Overview() {
                 <div style={{ fontSize: '.68rem', color: C.au2, letterSpacing: '.06em' }}>{t('AIADMK NDA Candidate · Lalgudi AC-143','அதிமுக NDA வேட்பாளர் · 143')}</div>
               </div>
             </div>
-            {/* Primary hero CTAs: Map + Voter List */}
-            <div style={{
-              position: 'absolute',
-              left: '50%',
-              top: '30%',
-              transform: 'translate(-50%, -50%)',
-              display: 'flex',
-              gap: '0.6rem',
-              padding: '0.35rem 0.5rem',
-              borderRadius: 10,
-              background: 'rgba(0,0,0,.22)',
-              boxShadow: '0 10px 28px rgba(0,0,0,.45)',
-              zIndex: 3,
-            }}>
-              <button
-                onClick={() => navigate('/map')}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  fontFamily: "'Outfit',sans-serif",
-                  fontSize: '.9rem',
-                  fontWeight: 800,
-                  letterSpacing: '.08em',
-                  textTransform: 'uppercase',
-                  padding: '8px 18px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  border: `2px solid ${C.au2}`,
-                  background: 'transparent',
-                  color: C.au2,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {t('Field Map 🗺️','வரைபடம் 🗺️')}
-              </button>
-              <button
-                onClick={() => navigate('/voters')}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  fontFamily: "'Outfit',sans-serif",
-                  fontSize: '.9rem',
-                  fontWeight: 800,
-                  letterSpacing: '.08em',
-                  textTransform: 'uppercase',
-                  padding: '8px 18px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  border: '2px solid #ffffff',
-                  background: 'transparent',
-                  color: '#ffffff',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {t('Voter List','வாக்காளர் பட்டியல்')}
-              </button>
-            </div>
+            {!isTablet && primaryCTAs}
           </div>
+          {isTablet && <div style={{ marginTop: '1rem' }}>{primaryCTAs}</div>}
         </Wrap>
       </div>
 
@@ -247,7 +254,7 @@ export default function Overview() {
           </Grid>
 
           {/* Photo slots */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : '1fr 1fr', gap: '1rem', marginTop: '2rem' }}>
             {[['L2.jpg','Lalgudi fields and Cauvery-side villages'],['L3.jpg','Lalgudi town and voters']].map(([src, alt]) => (
               <div key={src} style={{ background: C.white, border: `1px dashed ${C.line}`, borderRadius: 8, padding: '.7rem', display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
                 <div style={{ borderRadius: 6, overflow: 'hidden', background: C.line2, minHeight: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
