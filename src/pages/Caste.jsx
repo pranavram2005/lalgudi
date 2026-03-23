@@ -3,7 +3,7 @@ import { useLang } from '../context/LangContext'
 import { C, COMMUNITY_DATA } from '../data'
 import { Label, Heading, Card, ProgBar, Chip, Insight, Grid, Section, Wrap, Footer } from '../components/ui'
 
-export default function Caste() {
+export default function Caste({ embedded = false }) {
   const { t } = useLang()
   const [animated, setAnimated] = useState(false)
   useEffect(() => { const id = setTimeout(() => setAnimated(true), 200); return () => clearTimeout(id) }, [])
@@ -16,9 +16,8 @@ export default function Caste() {
     return <Chip variant="k">{lean}</Chip>
   }
 
-  return (
-    <div style={{ paddingTop: 96 }}>
-      <Wrap>
+  const content = (
+    <Wrap>
         <Section style={{ borderTop: 'none', paddingTop: '3rem' }}>
           <Label>{t('Caste & Community Analysis · Scribd MSU Report + Field Data','சாதி மற்றும் சமூக பகுப்பாய்வு · Scribd MSU அறிக்கை')}</Label>
           <Heading>{t(<>Who Controls <span style={{ color: C.ink3, fontWeight: 500 }}>Lalgudi's Votes</span> — <span style={{ color: C.au }}>And Why</span></>, 'லால்குடி வாக்குகளை யார் கட்டுப்படுத்துகிறார்கள்')}</Heading>
@@ -121,6 +120,11 @@ export default function Caste() {
           </Grid>
         </Section>
       </Wrap>
+  )
+
+  return embedded ? content : (
+    <div style={{ paddingTop: 96 }}>
+      {content}
       <Footer />
     </div>
   )

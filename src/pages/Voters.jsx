@@ -1,9 +1,41 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useLang } from '../context/LangContext'
 import { C } from '../data'
 import { Footer } from '../components/ui'
 import { useBreakpoint } from '../hooks/useBreakpoint'
 import data from '../voters/output_with_roof_laalgui.jsx'
+import { useAuth } from '../context/AuthContext'
+
+const CHECKLIST_KEY = 'voterChecklists'
+
+const NEED_OPTIONS = [
+  { value: 'medical',    en: 'Medical Needs',        ta: 'மருத்துவ தேவைகள்' },
+  { value: 'jobs',       en: 'Job Opportunities',    ta: 'வேலை வாய்ப்புகள்' },
+  { value: 'financial',  en: 'Financial Needs',      ta: 'நிதி தேவைகள்' },
+  { value: 'education',  en: 'Educational Needs',    ta: 'கல்வி தேவைகள்' },
+  { value: 'others',     en: 'Other Needs',          ta: 'மற்ற தேவைகள்' },
+]
+
+const getVoterId = (row = {}) => {
+  const code = row['ID Code'] || row['id'] || row['ID']
+  if (code) return String(code)
+  const serial = row['S.No'] || row['serial']
+  return serial ? String(serial) : undefined
+}
+
+const loadChecklistData = () => {
+  if (typeof window === 'undefined') return {}
+  try {
+    return JSON.parse(window.localStorage.getItem(CHECKLIST_KEY) || '{}')
+  } catch (err) {
+    return {}
+  }
+}
+
+const persistChecklistData = (payload) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(CHECKLIST_KEY, JSON.stringify(payload))
+}
 
 const Btn = ({ children, onClick, variant = 'o', style }) => {  
   const styles = {
@@ -85,7 +117,16 @@ const FilterField = ({ title, children, compact }) => (
 export default function Voters() {
   const { t } = useLang()
   const { isTablet } = useBreakpoint()
-  const [voters, setVoters] = useState(() => data.map(row => ({ ...row, notes: '' })))
+  const { user } = useAuth()
+  const isAgentView = user?.role === 'agent'
+  const scopedDataset = useMemo(() => {
+    if (isAgentView) {
+      const booth = (user?.boothNumber ?? '').toString()
+      return (data || []).filter(row => String(row?.Part ?? '') === booth)
+    }
+    return data || []
+  }, [isAgentView, user])
+  const [voters, setVoters] = useState(() => scopedDataset.map(row => ({ ...row, notes: '' })))
   const [filters, setFilters] = useState({
     constituency: '',
     division: [],
@@ -102,6 +143,59 @@ export default function Voters() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
   const [modified, setModified] = useState(new Set())
+  const [checklists, setChecklists] = useState(() => loadChecklistData())
+
+  useEffect(() => {
+    setVoters(scopedDataset.map(row => ({ ...row, notes: '' })))
+    setModified(new Set())
+    setPage(1)
+  }, [scopedDataset])
+
+  const updateChecklist = useCallback((voterId, updates) => {
+    if (!voterId) return
+    setChecklists(prev => {
+      const existing = prev[voterId] || {}
+      const nextEntry = {
+        ...existing,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      }
+      if (updates.confirmed !== undefined) {
+        nextEntry.confirmed = updates.confirmed
+        nextEntry.confirmedAt = updates.confirmed ? new Date().toISOString() : null
+        if (updates.confirmed && user?.role === 'agent') {
+          nextEntry.agent = user.username
+          nextEntry.boothNumber = user.boothNumber
+        }
+      }
+      if (user?.role === 'agent') {
+        nextEntry.agent = user.username
+        nextEntry.boothNumber = user.boothNumber
+      }
+      const next = { ...prev, [voterId]: nextEntry }
+      persistChecklistData(next)
+      return next
+    })
+  }, [user])
+
+  const selectedVoterId = selectedVoter ? getVoterId(selectedVoter) : null
+  const selectedChecklist = selectedVoterId ? checklists[selectedVoterId] : null
+  const selectedNeedOption = selectedChecklist?.need
+    ? NEED_OPTIONS.find(opt => opt.value === selectedChecklist.need)
+    : null
+  const selectedNeedLabel = selectedNeedOption
+    ? t(selectedNeedOption.en, selectedNeedOption.ta)
+    : t('Not captured yet', 'இன்னும் பதிவு செய்யப்படவில்லை')
+
+  const handleChecklistChange = useCallback((field, value) => {
+    if (!isAgentView || !selectedVoterId) return
+    updateChecklist(selectedVoterId, { [field]: value })
+  }, [isAgentView, selectedVoterId, updateChecklist])
+
+  const handleConfirmToggle = useCallback((checked) => {
+    if (!isAgentView || !selectedVoterId) return
+    updateChecklist(selectedVoterId, { confirmed: checked })
+  }, [isAgentView, selectedVoterId, updateChecklist])
 
   const updateField = useCallback((idCode, field, val) => {
     setVoters(prev => prev.map(v => v['ID Code'] === idCode ? { ...v, [field]: val } : v))
@@ -157,6 +251,11 @@ export default function Voters() {
     });
     setPage(1);
   };
+
+  const formatFilterLabel = (key, label) => {
+    const count = Array.isArray(filters[key]) ? filters[key].length : 0
+    return `${label} (${count})`
+  }
 
   const resetFilters = () => { 
     setFilters({ 
@@ -277,6 +376,20 @@ export default function Voters() {
 
   return (
     <div style={{ paddingTop: 96 }}>
+      {isAgentView && (
+        <div style={{
+          margin: '0 1.5rem 1.2rem',
+          padding: '.9rem 1.2rem',
+          borderRadius: 14,
+          border: '1px solid rgba(62,179,112,.35)',
+          background: 'rgba(62,179,112,.12)',
+          fontFamily: "'Outfit',sans-serif",
+          color: C.g700,
+          fontSize: '.85rem',
+        }}>
+          {t('Locked to Booth {{num}} · you can search/sort only within your assigned voters.', 'பூத் {{num}} மட்டும் காட்டப்படுகிறது · உங்களுக்கு ஒதுக்கப்பட்ட வாக்காளர்களுக்குள் மட்டுமே தேடலாம்.').replace('{{num}}', user?.boothNumber || '')}
+        </div>
+      )}
       {/* Filter bar */}
       <div style={{ background: C.line2, borderBottom: `1px solid ${C.line}`, padding: '1.5rem' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -289,7 +402,7 @@ export default function Voters() {
                 ))}
               </select>
             </FilterField>
-            <FilterField title={t('Division','பிரிவு')} compact={isTablet}>
+            <FilterField title={formatFilterLabel('division', t('Division','பிரிவு'))} compact={isTablet}>
               <MultiSelect
                 options={valueOptions.division}
                 selected={filters.division}
@@ -297,7 +410,7 @@ export default function Voters() {
                 compact={isTablet}
               />
             </FilterField>
-            <FilterField title={t('Ward','வார்டு')} compact={isTablet}>
+            <FilterField title={formatFilterLabel('ward', t('Village','கிராமம்'))} compact={isTablet}>
               <MultiSelect
                 options={valueOptions.ward}
                 selected={filters.ward}
@@ -305,7 +418,7 @@ export default function Voters() {
                 compact={isTablet}
               />
             </FilterField>
-            <FilterField title={t('Village','கிராமம்')} compact={isTablet}>
+            <FilterField title={formatFilterLabel('village', t('Ward','வார்டு'))} compact={isTablet}>
               <MultiSelect
                 options={valueOptions.village}
                 selected={filters.village}
@@ -373,8 +486,23 @@ export default function Voters() {
           <tbody>
             {pageData.length === 0 ? (
               <tr><td colSpan={10} style={{ textAlign: 'center', padding: '3rem', color: C.ink3 }}>{t('No voters match your filters. Try adjusting filters.','வடிகட்டிகளுக்கு பொருந்தும் வாக்காளர்கள் இல்லை.')}</td></tr>
-            ) : pageData.map(v => (
-              <tr key={v['ID Code'] || v['S.No']} onClick={() => handleRowClick(v)} style={{ borderBottom: `1px solid ${C.line}`, background: modified.has(v['ID Code']) ? 'rgba(200,160,48,.04)' : C.white, cursor: 'pointer' }}>
+            ) : pageData.map(v => {
+              const voterId = getVoterId(v)
+              const checklist = voterId ? checklists[voterId] : null
+              const isConfirmed = Boolean(checklist?.confirmed)
+              const rowBg = isConfirmed
+                ? 'rgba(62,179,112,.18)'
+                : (modified.has(v['ID Code']) ? 'rgba(200,160,48,.04)' : C.white)
+              const hoverText = isConfirmed && checklist?.agent
+                ? `${t('Secured by','பாதுகாத்தவர்')}: ${checklist.agent}${checklist?.boothNumber ? ` · ${t('Booth','பூத்')} ${checklist.boothNumber}` : ''}`
+                : undefined
+              return (
+                <tr
+                  key={v['ID Code'] || v['S.No']}
+                  onClick={() => handleRowClick(v)}
+                  style={{ borderBottom: `1px solid ${C.line}`, background: rowBg, cursor: 'pointer' }}
+                  title={hoverText}
+                >
                 <td style={{ padding: '.75rem .85rem', fontFamily: "'Outfit',sans-serif", fontSize: '.8rem', fontWeight: 700, color: C.g600 }}>{v['S.No']}</td>
                 <td style={{ padding: '.75rem .85rem', fontFamily: "'Outfit',sans-serif", fontSize: '.8rem', color: C.ink2 }}>{v['ID Code']}</td>
                 <td style={{ padding: '.75rem .85rem', fontFamily: "'Outfit',sans-serif", fontSize: '.8rem', color: C.ink }}>{v['Name']}</td>
@@ -399,8 +527,9 @@ export default function Voters() {
                     style={{ background: 'transparent', border: 'none', color: C.ink2, fontFamily: "'Outfit',sans-serif", fontSize: '.8rem', width: '100%', outline: 'none', padding: '2px 3px', minWidth: 100 }}
                   />
                 </td>
-              </tr>
-            ))}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -487,6 +616,83 @@ export default function Voters() {
             </div>
             <div style={{ flex: 1, overflowY: 'auto', paddingRight: '.5rem' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem' }}>
+                <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: '1.1rem 1.2rem', background: '#fff', boxShadow: '0 10px 28px rgba(15,42,26,.06)' }}>
+                  <div style={{ fontSize: '.72rem', letterSpacing: '.16em', textTransform: 'uppercase', color: C.ink3, fontWeight: 800, marginBottom: '.9rem' }}>
+                    {isAgentView ? t('Booth Agent Field Intake', 'பூத் ஏஜெண்ட் பதிவு') : t('Field Intake Summary', 'களப் பதிவு சுருக்கம்')}
+                  </div>
+                  {isAgentView ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '.4rem', fontSize: '.78rem', letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink3, fontWeight: 700 }}>
+                        {t('Need Prioritised', 'தேவை முன்னுரிமை')}
+                        <select
+                          value={selectedChecklist?.need || ''}
+                          onChange={(e) => handleChecklistChange('need', e.target.value)}
+                          style={{ padding: '.75rem 1rem', borderRadius: 10, border: `1px solid ${C.line}`, fontSize: '.95rem', fontFamily: "'Outfit',sans-serif" }}
+                        >
+                          <option value="">{t('Select voter need', 'வாக்காளர் தேவையைத் தேர்வுசெய்க')}</option>
+                          {NEED_OPTIONS.map(option => (
+                            <option key={option.value} value={option.value}>{t(option.en, option.ta)}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '.4rem', fontSize: '.78rem', letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink3, fontWeight: 700 }}>
+                        {t('Contact Phone (Optional)', 'தொடர்பு எண் (விருப்பம்)')}
+                        <input
+                          type="tel"
+                          value={selectedChecklist?.phone || ''}
+                          onChange={(e) => handleChecklistChange('phone', e.target.value)}
+                          placeholder={t('Enter voter phone if shared', 'வாக்காளர் பகிர்ந்தால் எண்ணை பதிவிடவும்')}
+                          style={{ padding: '.75rem 1rem', borderRadius: 10, border: `1px solid ${C.line}`, fontSize: '.95rem', fontFamily: "'Outfit',sans-serif" }}
+                        />
+                      </label>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '.4rem', fontSize: '.78rem', letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink3, fontWeight: 700 }}>
+                        {t('Party Preference', 'அவரது ஆதரவு கட்சி')}
+                        <input
+                          type="text"
+                          value={selectedChecklist?.party || ''}
+                          onChange={(e) => handleChecklistChange('party', e.target.value)}
+                          placeholder={t('Record party they lean towards', 'அவர்கள் விரும்பும் கட்சியை பதிவு செய்யவும்')}
+                          style={{ padding: '.75rem 1rem', borderRadius: 10, border: `1px solid ${C.line}`, fontSize: '.95rem', fontFamily: "'Outfit',sans-serif" }}
+                        />
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '.65rem', border: `1px dashed ${C.g500}`, borderRadius: 12, padding: '.75rem 1rem', background: 'rgba(62,179,112,.08)' }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(selectedChecklist?.confirmed)}
+                          onChange={(e) => handleConfirmToggle(e.target.checked)}
+                          style={{ width: 18, height: 18 }}
+                        />
+                        <span style={{ fontSize: '.86rem', fontWeight: 700, color: C.g700 }}>
+                          {t('Mark this vote as confirmed', 'இந்த வாக்கை உறுதிப்படுத்தவும்')}
+                        </span>
+                      </label>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                      {[{
+                        label: t('Need Prioritised', 'தேவை முன்னுரிமை'),
+                        value: selectedNeedLabel,
+                      }, {
+                        label: t('Contact Phone', 'தொடர்பு எண்'),
+                        value: selectedChecklist?.phone || t('Not shared', 'பகிரப்படவில்லை'),
+                      }, {
+                        label: t('Party Preference', 'ஆதரவு கட்சி'),
+                        value: selectedChecklist?.party || t('Not recorded', 'பதிவு செய்யப்படவில்லை'),
+                      }, {
+                        label: t('Confirmation State', 'வாக்கு நிலை'),
+                        value: selectedChecklist?.confirmed ? t('Confirmed', 'உறுதி செய்யப்பட்டது') : t('Pending', 'நிலுவை'),
+                      }, {
+                        label: t('Captured By', 'பதிவேற்றியவர்'),
+                        value: selectedChecklist?.agent ? `${selectedChecklist.agent}${selectedChecklist?.boothNumber ? ` · ${t('Booth','பூத்')} ${selectedChecklist.boothNumber}` : ''}` : t('Not assigned', 'ஒதுக்கப்படவில்லை'),
+                      }].map(item => (
+                        <div key={item.label} style={{ border: `1px solid ${C.line}`, borderRadius: 10, padding: '.8rem', background: C.line2 }}>
+                          <div style={{ fontSize: '.62rem', letterSpacing: '.06em', textTransform: 'uppercase', color: C.ink3, marginBottom: '.35rem', fontWeight: 700 }}>{item.label}</div>
+                          <div style={{ fontSize: '.95rem', fontWeight: 600, color: C.ink }}>{item.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 {detailSections.map(section => (
                   <div key={section.title} style={{ border: `1px solid ${C.line}`, borderRadius: 10, padding: '1rem 1.2rem', background: C.line2 }}>
                     <div style={{ fontSize: '.72rem', letterSpacing: '.18em', textTransform: 'uppercase', color: C.ink3, fontWeight: 700, marginBottom: '.9rem' }}>{section.title}</div>

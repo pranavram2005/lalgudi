@@ -3,14 +3,13 @@ import { useLang } from '../context/LangContext'
 import { C, ELECTION_DATA, TIMELINE } from '../data'
 import { Label, Heading, Insight, Grid, Section, Wrap, Footer, ResultCard, TlItem } from '../components/ui'
 
-export default function History() {
+export default function History({ embedded = false }) {
   const { t } = useLang()
   const [animated, setAnimated] = useState(false)
   useEffect(() => { const id = setTimeout(() => setAnimated(true), 200); return () => clearTimeout(id) }, [])
 
-  return (
-    <div style={{ paddingTop: 96 }}>
-      <Wrap>
+  const content = (
+    <Wrap>
         <Section style={{ borderTop: 'none', paddingTop: '3rem' }}>
           <Label>{t('Complete Election Record · Source: ECI + Wikipedia','முழுமையான தேர்தல் பதிவு')}</Label>
           <Heading>{t(<>Lalgudi 1967–2021 <span style={{ color: C.ink3, fontWeight: 500 }}>— Every Result, Every Story</span></>, 'லால்குடி 1967–2021 — ஒவ்வொரு முடிவும்')}</Heading>
@@ -83,6 +82,11 @@ export default function History() {
           </div>
         </Section>
       </Wrap>
+  )
+
+  return embedded ? content : (
+    <div style={{ paddingTop: 96 }}>
+      {content}
       <Footer />
     </div>
   )

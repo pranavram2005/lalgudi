@@ -17,15 +17,14 @@ const STRENGTHS = [
 
 const fillColor = (col) => col === 'g' ? `linear-gradient(90deg,${C.g600},${C.g400})` : col === 'au' ? `linear-gradient(90deg,${C.au},${C.au2})` : 'linear-gradient(90deg,#bf3c3c,#e06060)'
 
-export default function Strategy() {
+export default function Strategy({ embedded = false }) {
   const { t } = useLang()
   const [animated, setAnimated] = useState(false)
   useEffect(() => { const id = setTimeout(() => setAnimated(true), 200); return () => clearTimeout(id) }, [])
   const PB = (props) => <ProgBar {...props} animated={animated} />
 
-  return (
-    <div style={{ paddingTop: 96 }}>
-      <Wrap>
+  const content = (
+    <Wrap>
         <Section style={{ borderTop: 'none', paddingTop: '3rem' }}>
           <Label>{t('2026 Arithmetic & Execution Plan','2026 கணிதம் & செயல் திட்டம்')}</Label>
           <Heading>{t(<>From <span style={{ color: C.ink3, fontWeight: 500 }}>−16,949</span> to <span style={{ color: C.au }}>+1</span> — The Path</>, '−16,949 இலிருந்து +1 வரை — வழி')}</Heading>
@@ -143,6 +142,11 @@ export default function Strategy() {
           </div>
         </Section>
       </Wrap>
+  )
+
+  return embedded ? content : (
+    <div style={{ paddingTop: 96 }}>
+      {content}
       <Footer />
     </div>
   )

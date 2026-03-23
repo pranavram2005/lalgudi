@@ -4,14 +4,25 @@ import { useLang } from '../context/LangContext'
 import { C, ELECTION_DATA } from '../data'
 import { Label, Heading, Card, ProgBar, Chip, Insight, Grid, Section, Wrap, StatBar, Footer } from '../components/ui'
 import { useBreakpoint } from '../hooks/useBreakpoint'
+import History from './History'
+import Caste from './Caste'
+import Strategy from './Strategy'
 
 export default function Overview() {
   const { t } = useLang()
   const navigate = useNavigate()
   const [animated, setAnimated] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
   const { isTablet, isMobile } = useBreakpoint()
   useEffect(() => { const id = setTimeout(() => setAnimated(true), 200); return () => clearTimeout(id) }, [])
   const PB = (props) => <ProgBar {...props} animated={animated} />
+
+  const tabItems = [
+    { id: 'overview', label: t('Overview', 'கண்ணோட்டம்') },
+    { id: 'history', label: t('Election History', 'வரலாறு') },
+    { id: 'caste', label: t('Caste & Ground', 'சாதி & களம்') },
+    { id: 'strategy', label: t('2026 Strategy', 'வியூகம் 2026') },
+  ]
 
   const latest = ELECTION_DATA[ELECTION_DATA.length - 1]
   const primaryCTAs = (
@@ -79,89 +90,8 @@ export default function Overview() {
     </div>
   )
 
-  return (
-    <div style={{ paddingTop: 96 }}>
-      {/* ── HERO ── */}
-      <div style={{ background: C.g800, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 600px 380px at 18% 55%,rgba(46,132,79,.22) 0%,transparent 65%),radial-gradient(ellipse 380px 260px at 78% 18%,rgba(200,160,48,.1) 0%,transparent 60%)', pointerEvents: 'none' }} />
-        <Wrap>
-          <div style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : 'minmax(0,1fr) 460px', minHeight: isTablet ? 'auto' : 460, position: 'relative', zIndex: 1, columnGap: isTablet ? '2rem' : '3rem', rowGap: isTablet ? '2rem' : 0 }}>
-            <div style={{ padding: isTablet ? '2.5rem 0 2rem' : '3.5rem 2.4rem 3.5rem 0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              {/* Pills */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: '1.3rem' }}>
-                {[
-                  [t('Lalgudi AC · Constituency 143','லால்குடி தொகுதி 143'), false],
-                  [t('Tiruchirappalli District','திருச்சிராப்பள்ளி மாவட்டம்'), false],
-                  [t('Polling: 23 April 2026','வாக்குப்பதிவு: 23 ஏப்ரல்'), true],
-                ].map(([txt, gold]) => (
-                  <span key={txt} style={{
-                    background: gold ? C.au4 : 'rgba(255,255,255,.07)',
-                    border: `1px solid ${gold ? C.auBorder : 'rgba(255,255,255,.13)'}`,
-                    color: gold ? C.au2 : 'rgba(255,255,255,.65)',
-                    fontFamily: "'Outfit',sans-serif", fontSize: '.62rem', fontWeight: 600,
-                    letterSpacing: '.07em', textTransform: 'uppercase', padding: '3px 9px', borderRadius: 20,
-                  }}>{txt}</span>
-                ))}
-              </div>
-
-              {/* Title */}
-              <h1 style={{ fontFamily: "'Outfit',sans-serif", fontSize: 'clamp(2rem,4.5vw,3.5rem)', fontWeight: 900, letterSpacing: '-.03em', lineHeight: 1.02, color: '#fff', marginBottom: '.5rem' }}>
-                {t('Field','தேர்தல்')}<br/>
-                <span style={{ color: C.au2 }}>{t('Intelligence','தகவல்')}</span><br/>
-                <span style={{ color: C.g300 }}>{t('Report 2026','அறிக்கை 2026')}</span>
-              </h1>
-
-              {/* Quote */}
-              <p style={{ fontFamily: "'Libre Baskerville',serif", fontStyle: 'italic', fontSize: '.9rem', color: 'rgba(255,255,255,.5)', marginBottom: '1.8rem', lineHeight: 1.65 }}>
-                {t(
-                  '"Lalgudi has waited 25 years for a leader who delivers — not just promises. Dr. Leema Rose Martin and the AIADMK–BJP–PMK alliance bring Central government access, Amma\'s welfare legacy, and a triple booth network to finally close that gap on 23 April 2026."',
-                  '"லால்குடி 25 ஆண்டுகளாக வெறும் வாக்குறுதிகள் அல்ல — செயல்படும் தலைமையை எதிர்பார்க்கிறது. டாக்டர் லீமா ரோஸ் மார்ட்டினும் அதிமுக–BJP–PMK கூட்டணியும் 23 ஏப்ரல் 2026 அன்று வரலாற்றை மாற்ற தயாராக உள்ளனர்."'
-                )}
-              </p>
-
-              {/* Meta grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)', gap: 1, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.09)', borderRadius: 8, overflow: 'hidden', maxWidth: 370, marginBottom: '1.3rem' }}>
-                {[
-                  [t('AIADMK Candidate','அதிமுக வேட்பாளர்'), 'Dr. M. Leema Rose Martin'],
-                  [t('Alliance','கூட்டணி'), 'AIADMK + BJP + PMK'],
-                  [t('Electorate (2021)','வாக்காளர்கள்'), '2,18,131'],
-                  [t('2021 Turnout','திரட்சி'), '79.56% (1,73,554)'],
-                ].map(([l, v]) => (
-                  <div key={l} style={{ background: 'rgba(0,0,0,.2)', padding: '.7rem 1rem' }}>
-                    <div style={{ fontSize: '.57rem', fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.38)', marginBottom: '.18rem' }}>{l}</div>
-                    <div style={{ fontSize: '.84rem', fontWeight: 600, color: 'rgba(255,255,255,.84)' }}>{v}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* CTA buttons */}
-              <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
-                <button onClick={() => navigate('/caste')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: "'Outfit',sans-serif", fontSize: '.7rem', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', padding: '8px 17px', borderRadius: 5, cursor: 'pointer', border: 'none', background: 'rgba(255,255,255,.12)', color: 'rgba(255,255,255,.8)' }}>
-                  {t('Caste Analysis →','சாதி பகுப்பாய்வு →')}
-                </button>
-              </div>
-            </div>
-
-            {/* Candidate photo */}
-            <div style={{ position: 'relative', overflow: 'hidden', borderLeft: isTablet ? 'none' : '1px solid rgba(255,255,255,.07)', borderRadius: isTablet ? 12 : 0, minHeight: isTablet ? 320 : 420, maxHeight: isTablet ? 480 : 540, background: 'rgba(255,255,255,.03)', transform: isTablet ? 'none' : 'translateX(100px)' }}>
-              <div style={{ position: isTablet ? 'absolute' : 'absolute', inset: 0, background: 'linear-gradient(to right,#143320 0%,transparent 38%),linear-gradient(to top,#143320 0%,transparent 28%)', zIndex: 1 }} />
-              <img
-                src="/images/aiadmk.png"
-                alt="Dr. M. Leema Rose Martin"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block', transform: isTablet ? 'none' : 'scale(.78)', transformOrigin: 'center top' }}
-                onError={e => { e.target.parentElement.style.background = 'rgba(255,255,255,.04)'; e.target.style.display = 'none' }}
-              />
-              <div style={{ position: 'absolute', bottom: '1.4rem', left: 0, right: 0, zIndex: 2, textAlign: 'center' }}>
-                <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: '.98rem', fontWeight: 800, color: '#fff', textShadow: '0 2px 16px rgba(0,0,0,.7)' }}>Dr. M. Leema Rose Martin</div>
-                <div style={{ fontSize: '.68rem', color: C.au2, letterSpacing: '.06em' }}>{t('AIADMK NDA Candidate · Lalgudi AC-143','அதிமுக NDA வேட்பாளர் · 143')}</div>
-              </div>
-            </div>
-            {!isTablet && primaryCTAs}
-          </div>
-          {isTablet && <div style={{ marginTop: '1rem' }}>{primaryCTAs}</div>}
-        </Wrap>
-      </div>
-
+  const overviewBody = (
+    <>
       {/* ── STAT BAR ── */}
       <StatBar stats={[
         { n: '2,00,000+', l: t('Electorate','வாக்காளர்கள்'), s: '218,131 on 2021 roll' },
@@ -266,6 +196,145 @@ export default function Overview() {
           </div>
         </Section>
       </Wrap>
+    </>
+  )
+
+  const renderTabContent = () => {
+    if (activeTab === 'history') return <History embedded />
+    if (activeTab === 'caste') return <Caste embedded />
+    if (activeTab === 'strategy') return <Strategy embedded />
+    return overviewBody
+  }
+
+  return (
+    <div style={{ paddingTop: 96 }}>
+      {/* ── HERO ── */}
+      <div style={{ background: C.g800, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 600px 380px at 18% 55%,rgba(46,132,79,.22) 0%,transparent 65%),radial-gradient(ellipse 380px 260px at 78% 18%,rgba(200,160,48,.1) 0%,transparent 60%)', pointerEvents: 'none' }} />
+        <Wrap>
+          <div style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : 'minmax(0,1fr) 460px', minHeight: isTablet ? 'auto' : 460, position: 'relative', zIndex: 1, columnGap: isTablet ? '2rem' : '3rem', rowGap: isTablet ? '2rem' : 0 }}>
+            <div style={{ padding: isTablet ? '2.5rem 0 2rem' : '3.5rem 2.4rem 3.5rem 0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              {/* Pills */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: '1.3rem' }}>
+                {[
+                  [t('Lalgudi AC · Constituency 143','லால்குடி தொகுதி 143'), false],
+                  [t('Tiruchirappalli District','திருச்சிராப்பள்ளி மாவட்டம்'), false],
+                  [t('Polling: 23 April 2026','வாக்குப்பதிவு: 23 ஏப்ரல்'), true],
+                ].map(([txt, gold]) => (
+                  <span key={txt} style={{
+                    background: gold ? C.au4 : 'rgba(255,255,255,.07)',
+                    border: `1px solid ${gold ? C.auBorder : 'rgba(255,255,255,.13)'}`,
+                    color: gold ? C.au2 : 'rgba(255,255,255,.65)',
+                    fontFamily: "'Outfit',sans-serif", fontSize: '.62rem', fontWeight: 600,
+                    letterSpacing: '.07em', textTransform: 'uppercase', padding: '3px 9px', borderRadius: 20,
+                  }}>{txt}</span>
+                ))}
+              </div>
+
+              {/* Title */}
+              <h1 style={{ fontFamily: "'Outfit',sans-serif", fontSize: 'clamp(2rem,4.5vw,3.5rem)', fontWeight: 900, letterSpacing: '-.03em', lineHeight: 1.02, color: '#fff', marginBottom: '.5rem' }}>
+                {t('Field','தேர்தல்')}<br/>
+                <span style={{ color: C.au2 }}>{t('Intelligence','தகவல்')}</span><br/>
+                <span style={{ color: C.g300 }}>{t('Report 2026','அறிக்கை 2026')}</span>
+              </h1>
+
+              {/* Quote */}
+              <p style={{ fontFamily: "'Libre Baskerville',serif", fontStyle: 'italic', fontSize: '.9rem', color: 'rgba(255,255,255,.5)', marginBottom: '1.8rem', lineHeight: 1.65 }}>
+                {t(
+                  '"Lalgudi has waited 25 years for a leader who delivers — not just promises. Dr. Leema Rose Martin and the AIADMK–BJP–PMK alliance bring Central government access, Amma\'s welfare legacy, and a triple booth network to finally close that gap on 23 April 2026."',
+                  '"லால்குடி 25 ஆண்டுகளாக வெறும் வாக்குறுதிகள் அல்ல — செயல்படும் தலைமையை எதிர்பார்க்கிறது. டாக்டர் லீமா ரோஸ் மார்ட்டினும் அதிமுக–BJP–PMK கூட்டணியும் 23 ஏப்ரல் 2026 அன்று வரலாற்றை மாற்ற தயாராக உள்ளனர்."'
+                )}
+              </p>
+
+              {/* Meta grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)', gap: 1, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.09)', borderRadius: 8, overflow: 'hidden', maxWidth: 370, marginBottom: '1.3rem' }}>
+                {[
+                  [t('AIADMK Candidate','அதிமுக வேட்பாளர்'), 'Dr. M. Leema Rose Martin'],
+                  [t('Alliance','கூட்டணி'), 'AIADMK + BJP + PMK'],
+                  [t('Electorate (2021)','வாக்காளர்கள்'), '2,18,131'],
+                  [t('2021 Turnout','திரட்சி'), '79.56% (1,73,554)'],
+                ].map(([l, v]) => (
+                  <div key={l} style={{ background: 'rgba(0,0,0,.2)', padding: '.7rem 1rem' }}>
+                    <div style={{ fontSize: '.57rem', fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.38)', marginBottom: '.18rem' }}>{l}</div>
+                    <div style={{ fontSize: '.84rem', fontWeight: 600, color: 'rgba(255,255,255,.84)' }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA buttons */}
+              <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+                <button onClick={() => navigate('/caste')} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: "'Outfit',sans-serif", fontSize: '.7rem', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', padding: '8px 17px', borderRadius: 5, cursor: 'pointer', border: 'none', background: 'rgba(255,255,255,.12)', color: 'rgba(255,255,255,.8)' }}>
+                  {t('Caste Analysis →','சாதி பகுப்பாய்வு →')}
+                </button>
+              </div>
+            </div>
+
+            {/* Candidate photo */}
+            <div style={{ position: 'relative', overflow: 'hidden', borderLeft: isTablet ? 'none' : '1px solid rgba(255,255,255,.07)', borderRadius: isTablet ? 12 : 0, minHeight: isTablet ? 320 : 420, maxHeight: isTablet ? 480 : 540, background: 'rgba(255,255,255,.03)', transform: isTablet ? 'none' : 'translateX(100px)' }}>
+              <div style={{ position: isTablet ? 'absolute' : 'absolute', inset: 0, background: 'linear-gradient(to right,#143320 0%,transparent 38%),linear-gradient(to top,#143320 0%,transparent 28%)', zIndex: 1 }} />
+              <img
+                src="/images/aiadmk.png"
+                alt="Dr. M. Leema Rose Martin"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block', transform: isTablet ? 'none' : 'scale(.78)', transformOrigin: 'center top' }}
+                onError={e => { e.target.parentElement.style.background = 'rgba(255,255,255,.04)'; e.target.style.display = 'none' }}
+              />
+              <div style={{ position: 'absolute', bottom: '1.4rem', left: 0, right: 0, zIndex: 2, textAlign: 'center' }}>
+                <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: '.98rem', fontWeight: 800, color: '#fff', textShadow: '0 2px 16px rgba(0,0,0,.7)' }}>Dr. M. Leema Rose Martin</div>
+                <div style={{ fontSize: '.68rem', color: C.au2, letterSpacing: '.06em' }}>{t('AIADMK NDA Candidate · Lalgudi AC-143','அதிமுக NDA வேட்பாளர் · 143')}</div>
+              </div>
+            </div>
+            {!isTablet && primaryCTAs}
+          </div>
+          {isTablet && <div style={{ marginTop: '1rem' }}>{primaryCTAs}</div>}
+        </Wrap>
+      </div>
+
+      <Wrap>
+        <div style={{
+          marginTop: '1.6rem',
+          background: '#fff',
+          borderRadius: 12,
+          border: `1px solid ${C.line}`,
+          padding: '.35rem',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '.4rem',
+          boxShadow: '0 8px 32px rgba(14,42,25,.08)'
+        }}>
+          {tabItems.map(tab => {
+            const isActive = tab.id === activeTab
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  border: 'none',
+                  borderRadius: 9,
+                  padding: '.55rem 1.2rem',
+                  fontFamily: "'Outfit',sans-serif",
+                  fontSize: '.78rem',
+                  fontWeight: 700,
+                  letterSpacing: '.05em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  background: isActive ? C.g700 : 'transparent',
+                  color: isActive ? '#fff' : C.ink3,
+                  boxShadow: isActive ? '0 12px 28px rgba(4,61,35,.25)' : 'none',
+                  transition: 'all .15s',
+                  flex: isTablet ? '1 0 calc(50% - .5rem)' : '0 0 auto',
+                  textAlign: 'center'
+                }}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      </Wrap>
+
+      <div style={{ marginTop: '1.8rem' }}>
+        {renderTabContent()}
+      </div>
 
       <Footer />
     </div>
