@@ -2,7 +2,29 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { useBreakpoint } from '../hooks/useBreakpoint'
-import voters from '../voters/output_with_roof_laalgui.jsx'
+import data1 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-1-WI_with_roof'
+import data2 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-2-WI_with_roof'
+import data3 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-3-WI_with_roof'
+import data4 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-4-WI_with_roof'
+import data5 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-5-WI_with_roof'
+import data6 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-6-WI_with_roof'
+import data7 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-7-WI_with_roof'
+import data8 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-8-WI_with_roof'
+import data9 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-9-WI_with_roof'
+import data10 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-10-WI_with_roof'
+
+const allVotersData = [
+  ...data1,
+  ...data2,
+  ...data3,
+  ...data4,
+  ...data5,
+  ...data6,
+  ...data7,
+  ...data8,
+  ...data9,
+  ...data10,
+]
 import { C } from '../data'
 
 const LS_AGENTS_KEY = 'boothAgents'
@@ -40,11 +62,29 @@ const getStoredChecklists = () => {
 }
 
 export default function AdminAgentDetail() {
+    // Get number of confirmed checklists from localStorage
+    const [confirmedCount, setConfirmedCount] = useState(0);
+    useEffect(() => {
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = window.localStorage.getItem('voterChecklists');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const count = Object.values(parsed || {}).filter(entry => entry && entry.confirmed).length;
+            setConfirmedCount(count);
+          } else {
+            setConfirmedCount(0);
+          }
+        } catch {
+          setConfirmedCount(0);
+        }
+      }
+    }, []);
   const { agentId } = useParams()
   const navigate = useNavigate()
   const { t, lang } = useLang()
   const { isTablet } = useBreakpoint()
-  const dataset = voters || []
+  const dataset = allVotersData || []
   const [agents, setAgents] = useState([])
   const [checklists, setChecklists] = useState({})
   const handleBack = () => navigate('/admin/progress')
@@ -131,6 +171,9 @@ export default function AdminAgentDetail() {
 
   return (
     <div style={{ padding: isTablet ? '1.25rem' : '2.5rem', background: '#fbfffc', minHeight: '100vh' }}>
+      <div style={{ fontWeight: 700, color: C.g700, fontSize: '1.1rem', marginBottom: '.7rem' }}>
+        Division ({confirmedCount})
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
         <button
           type="button"

@@ -3,7 +3,29 @@ import { useNavigate } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { useBreakpoint } from '../hooks/useBreakpoint'
 import { C } from '../data'
-import voters from '../voters/output_with_roof_laalgui.jsx'
+import data1 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-1-WI_with_roof'
+import data2 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-2-WI_with_roof'
+import data3 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-3-WI_with_roof'
+import data4 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-4-WI_with_roof'
+import data5 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-5-WI_with_roof'
+import data6 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-6-WI_with_roof'
+import data7 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-7-WI_with_roof'
+import data8 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-8-WI_with_roof'
+import data9 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-9-WI_with_roof'
+import data10 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-10-WI_with_roof'
+
+const allVotersData = [
+  ...data1,
+  ...data2,
+  ...data3,
+  ...data4,
+  ...data5,
+  ...data6,
+  ...data7,
+  ...data8,
+  ...data9,
+  ...data10,
+]
 
 const initialState = () => ({
   username: '',
@@ -37,6 +59,24 @@ const loadAgents = () => {
 }
 
 export default function AddBoothAgent() {
+    // Get number of confirmed checklists from localStorage
+    const [confirmedCount, setConfirmedCount] = useState(0);
+    useEffect(() => {
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = window.localStorage.getItem('voterChecklists');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const count = Object.values(parsed || {}).filter(entry => entry && entry.confirmed).length;
+            setConfirmedCount(count);
+          } else {
+            setConfirmedCount(0);
+          }
+        } catch {
+          setConfirmedCount(0);
+        }
+      }
+    }, []);
   const { t } = useLang()
   const { isTablet } = useBreakpoint()
   const navigate = useNavigate()
@@ -55,7 +95,7 @@ export default function AddBoothAgent() {
   const boothUniverse = useMemo(() => {
     return Array.from(
       new Set(
-        (voters || [])
+        (allVotersData || [])
           .map(v => v?.Part)
           .filter(part => part !== undefined && part !== null && part !== '')
           .map(part => part.toString())
@@ -254,6 +294,9 @@ export default function AddBoothAgent() {
 
   return (
     <div style={{ paddingTop: isTablet ? 86 : 104, background: C.g50, minHeight: '100vh' }}>
+      <div style={{ fontWeight: 700, color: C.g700, fontSize: '1.1rem', marginBottom: '.7rem' }}>
+        Division ({confirmedCount})
+      </div>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: isTablet ? '1.2rem' : '2.4rem 2.6rem 3rem' }}>
         <div style={{ background: C.white, borderRadius: 20, padding: isTablet ? '1.6rem' : '2rem 2.4rem', border: `1px solid ${C.line}`, boxShadow: '0 24px 70px rgba(15,42,26,.08)', marginBottom: '1.8rem' }}>
           <p style={{ fontSize: '.78rem', letterSpacing: '.16em', textTransform: 'uppercase', color: C.ink3, marginBottom: '.3rem' }}>{t('Admin Tool', 'நிர்வாக கருவி')}</p>

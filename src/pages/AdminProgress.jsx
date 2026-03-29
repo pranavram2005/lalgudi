@@ -3,7 +3,29 @@ import { useNavigate } from 'react-router-dom'
 import { useLang } from '../context/LangContext'
 import { useBreakpoint } from '../hooks/useBreakpoint'
 import { C } from '../data'
-import voters from '../voters/output_with_roof_laalgui.jsx'
+import data1 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-1-WI_with_roof'
+import data2 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-2-WI_with_roof'
+import data3 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-3-WI_with_roof'
+import data4 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-4-WI_with_roof'
+import data5 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-5-WI_with_roof'
+import data6 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-6-WI_with_roof'
+import data7 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-7-WI_with_roof'
+import data8 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-8-WI_with_roof'
+import data9 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-9-WI_with_roof'
+import data10 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-10-WI_with_roof'
+
+const allVotersData = [
+  ...data1,
+  ...data2,
+  ...data3,
+  ...data4,
+  ...data5,
+  ...data6,
+  ...data7,
+  ...data8,
+  ...data9,
+  ...data10,
+]
 
 const AGENT_KEY = 'boothAgents'
 const CHECKLIST_KEY = 'voterChecklists'
@@ -37,7 +59,7 @@ export default function AdminProgress() {
   const { t, lang } = useLang()
   const { isTablet } = useBreakpoint()
   const navigate = useNavigate()
-  const dataset = voters || []
+  const dataset = allVotersData || []
   const [agents, setAgents] = useState(() => loadAgents())
   const [checklists, setChecklists] = useState(() => loadChecklists())
 
@@ -87,9 +109,12 @@ export default function AdminProgress() {
           <h1 style={{ margin: 0, fontSize: isTablet ? '2rem' : '2.4rem', fontWeight: 900, color: C.ink }}>
             {t('Vote Confirmation Control Room', 'வாக்கு உறுதி கட்டுப்பாட்டு அறை')}
           </h1>
-          <p style={{ fontSize: '.95rem', color: C.ink2, marginTop: '.5rem', maxWidth: 720 }}>
+          <div style={{ fontSize: '.95rem', color: C.ink2, marginTop: '.5rem', maxWidth: 720 }}>
             {t('Live snapshot of booth agent performance and field requests. Use the agent table below to audit secured votes and citizen needs.', 'பூத் ஏஜெண்ட்களின் செயல்பாடும் களத் தேவைகளும் ஒரே இடத்தில். உறுதிப்படுத்தப்பட்ட வாக்குகளையும் தேவைகளையும் கீழுள்ள அட்டவணையில் ஆய்வு செய்யுங்கள்.')}
-          </p>
+          </div>
+          <div style={{ marginTop: '.7rem', fontWeight: 700, color: C.g700, fontSize: '1.1rem' }}>
+            Division ({confirmedEntries.length})
+          </div>
           <div style={{ marginTop: '1.4rem', border: `1px solid ${C.line}`, borderRadius: 16, padding: '1.2rem 1.4rem', background: C.line2 }}>
             <div style={{ display: 'flex', flexDirection: isTablet ? 'column' : 'row', gap: '1rem', alignItems: isTablet ? 'flex-start' : 'center' }}>
               <div style={{ flex: 1 }}>

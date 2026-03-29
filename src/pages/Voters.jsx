@@ -3,9 +3,35 @@ import { useLang } from '../context/LangContext'
 import { C } from '../data'
 import { Footer } from '../components/ui'
 import { useBreakpoint } from '../hooks/useBreakpoint'
-import data from '../voters/output_with_roof_laalgui.jsx'
-import { useAuth } from '../context/AuthContext'
 
+import { useAuth } from '../context/AuthContext'
+import data1 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-1-WI_with_roof'
+import data2 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-2-WI_with_roof'
+import data3 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-3-WI_with_roof'
+import data4 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-4-WI_with_roof'
+import data5 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-5-WI_with_roof'
+import data6 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-6-WI_with_roof'
+import data7 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-7-WI_with_roof'
+import data8 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-8-WI_with_roof'
+import data9 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-9-WI_with_roof'
+import data10 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-10-WI_with_roof'
+
+function decrementSNo(arr) {
+  return arr.map(v => ({ ...v, 'S.No': (parseInt(v['S.No'], 10) || 0) - 1 }))
+}
+
+const allVotersData = [
+  ...decrementSNo(data1),
+  ...decrementSNo(data2),
+  ...decrementSNo(data3),
+  ...decrementSNo(data4),
+  ...decrementSNo(data5),
+  ...decrementSNo(data6),
+  ...decrementSNo(data7),
+  ...decrementSNo(data8),
+  ...decrementSNo(data9),
+  ...decrementSNo(data10),
+]
 const CHECKLIST_KEY = 'voterChecklists'
 
 const NEED_OPTIONS = [
@@ -66,7 +92,7 @@ const FilterGroup = ({ label, children, compact }) => (
   </div>
 );
 
-const MultiSelect = ({ options = [], selected, onChange, compact }) => (
+const MultiSelect = ({ options = [], selected, onChange, compact, filterName }) => (
   <div style={{
     maxHeight: '140px',
     overflowY: 'auto',
@@ -99,7 +125,8 @@ const MultiSelect = ({ options = [], selected, onChange, compact }) => (
             accentColor: C.au2
           }}
         />
-        <span>{label}{count ? ` (${count})` : ''}</span>
+        {/* For division, show count only once, not twice */}
+        <span>{filterName === 'division' ? label : label}{count && filterName === 'division' ? ` (${count})` : (count && filterName !== 'division' ? ` (${count})` : '')}</span>
       </label>
     ))}
   </div>
@@ -115,6 +142,7 @@ const FilterField = ({ title, children, compact }) => (
 );
 
 export default function Voters() {
+
   const { t } = useLang()
   const { isTablet } = useBreakpoint()
   const { user } = useAuth()
@@ -122,9 +150,9 @@ export default function Voters() {
   const scopedDataset = useMemo(() => {
     if (isAgentView) {
       const booth = (user?.boothNumber ?? '').toString()
-      return (data || []).filter(row => String(row?.Part ?? '') === booth)
+      return (allVotersData || []).filter(row => String(row?.Part ?? '') === booth)
     }
-    return data || []
+    return allVotersData || []
   }, [isAgentView, user])
   const [voters, setVoters] = useState(() => scopedDataset.map(row => ({ ...row, notes: '' })))
   const [filters, setFilters] = useState({
@@ -139,7 +167,7 @@ export default function Voters() {
   })
   const [selectedVoter, setSelectedVoter] = useState(null)
   const [familyRoof, setFamilyRoof] = useState(null)
-  const [sort, setSort] = useState({ key: 'S.No', dir: 1 })
+  const [sort, setSort] = useState({ key: '', dir: 1 })
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
   const [modified, setModified] = useState(new Set())
@@ -222,11 +250,14 @@ export default function Voters() {
       if (filters.houseNo && v['House No'] !== filters.houseNo) return false
       return true
     })
+    if (!sort.key) return f;
     return [...f].sort((a, b) => {
       const av = a[sort.key], bv = b[sort.key]
       return typeof av === 'number' ? (av - bv) * sort.dir : String(av).localeCompare(String(bv)) * sort.dir
     })
   }, [voters, filters, sort])
+
+
 
   const totalPages = Math.ceil(filteredSorted.length / pageSize)
   const pageData = filteredSorted.slice((page - 1) * pageSize, page * pageSize)
@@ -252,9 +283,11 @@ export default function Voters() {
     setPage(1);
   };
 
+  // Show count only for selected filters, not for total options (avoid double count)
   const formatFilterLabel = (key, label) => {
-    const count = Array.isArray(filters[key]) ? filters[key].length : 0
-    return `${label} (${count})`
+    if (key === 'division') return label; // Don't show count in label for Division
+    const count = Array.isArray(filters[key]) ? filters[key].length : 0;
+    return `${label} (${count})`;
   }
 
   const resetFilters = () => { 
@@ -317,10 +350,10 @@ export default function Voters() {
     if (!familyRoof) return []
     return voters.filter(v => {
       if (familyRoof.running && v['One Roof Running Number']) {
-        return v['One Roof Running Number'] === familyRoof.running
+        return v['One Roof Running Number'] === familyRoof.running && v['House No'] === familyRoof.house
       }
       if (familyRoof.roofName) {
-        return v['One Roof'] === familyRoof.roofName
+        return v['One Roof'] === familyRoof.roofName && v['House No'] === familyRoof.house
       }
       return false
     })
@@ -363,8 +396,15 @@ export default function Voters() {
       ward: make('Ward'),
       village: make('Village'),
       gender: make('Gender'),
+      roofNumber: make('One Roof Running Number'),
+      oneRoof: make('One Roof'),
     }
   }, [voters])
+
+  // Show the total number of division filter options (boxes)
+  const confirmedDivisionCount = useMemo(() => {
+    return valueOptions.division.length;
+  }, [valueOptions.division]);
 
   const TH = ({ k, children }) => (
     <th onClick={() => handleSort(k)} style={{ padding: '.6rem .85rem', textAlign: 'left', fontFamily: "'Outfit',sans-serif", fontSize: '.57rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: sort.key === k ? C.au2 : 'rgba(255,255,255,.48)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -392,6 +432,9 @@ export default function Voters() {
       )}
       {/* Filter bar */}
       <div style={{ background: C.line2, borderBottom: `1px solid ${C.line}`, padding: '1.5rem' }}>
+        <div style={{ fontWeight: 700, color: C.g700, fontSize: '1.1rem', marginBottom: '.7rem' }}>
+          {t('Division','பிரிவு')} ({confirmedDivisionCount})
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <FilterGroup label={t('Location Filters', 'இடம் வடிகட்டிகள்')} compact={isTablet}>
             <FilterField title={t('Constituency','தொகுதி')} compact={isTablet}>
@@ -404,10 +447,14 @@ export default function Voters() {
             </FilterField>
             <FilterField title={formatFilterLabel('division', t('Division','பிரிவு'))} compact={isTablet}>
               <MultiSelect
-                options={valueOptions.division}
+                options={valueOptions.division.map(opt => ({
+                  ...opt,
+                  label: `${opt.label} (${opt.count})`
+                }))}
                 selected={filters.division}
                 onChange={(val) => handleMultiSelectChange('division', val)}
                 compact={isTablet}
+                  filterName="division" // Ensure MultiSelect for division passes filterName='division'
               />
             </FilterField>
             <FilterField title={formatFilterLabel('ward', t('Village','கிராமம்'))} compact={isTablet}>
@@ -464,6 +511,92 @@ export default function Voters() {
             {l}: <strong style={{ color: C.g700, fontWeight: 700 }}>{v}</strong>
           </div>
         ))}
+      </div>
+
+
+      {/* Pagination (top) */}
+      <div style={{ marginBottom: '0.5rem' }}>
+        {/* ...existing pagination code (copy from below)... */}
+        {(() => {
+          const windowSize = 2;
+          let start = Math.max(1, page - windowSize);
+          let end = Math.min(totalPages, page + windowSize);
+          if (end - start < 2 * windowSize) {
+            if (start === 1) {
+              end = Math.min(totalPages, start + 2 * windowSize);
+            } else if (end === totalPages) {
+              start = Math.max(1, end - 2 * windowSize);
+            }
+          }
+          start = Math.max(1, start);
+          end = Math.min(totalPages, end);
+          const pages = [];
+          if (totalPages <= 2 * windowSize + 3) {
+            for (let p = 1; p <= totalPages; ++p) pages.push(p);
+          } else {
+            if (start > 1) {
+              pages.push(1);
+              if (start > 2) pages.push('...');
+            }
+            for (let p = start; p <= end; ++p) {
+              if (p !== 1 && p !== totalPages) pages.push(p);
+            }
+            if (end < totalPages) {
+              if (end < totalPages - 1) pages.push('...');
+              pages.push(totalPages);
+            }
+          }
+          const uniquePages = [];
+          for (let i = 0; i < pages.length; ++i) {
+            if (i === 0 || pages[i] !== pages[i - 1]) uniquePages.push(pages[i]);
+          }
+          return (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.white, borderTop: `1px solid ${C.line}`, flexWrap: 'wrap', gap: '.5rem', padding: '.75rem 1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '.7rem', color: C.ink3 }}>
+                {t('Rows:','வரிசைகள்:')}
+                <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }} style={{ background: C.line2, border: `1px solid ${C.line}`, padding: '3px 7px', borderRadius: 3, fontSize: '.7rem', outline: 'none' }}>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <button
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  style={{ width: 32, height: 27, border: `1px solid ${page === 1 ? C.line : C.g700}`, borderRadius: 4, background: page === 1 ? C.line2 : C.white, color: page === 1 ? C.ink3 : C.g700, fontWeight: 700, fontFamily: "'Outfit',sans-serif", fontSize: '.68rem', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+                >{t('First','முதல்')}</button>
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  style={{ width: 32, height: 27, border: `1px solid ${page === 1 ? C.line : C.g700}`, borderRadius: 4, background: page === 1 ? C.line2 : C.white, color: page === 1 ? C.ink3 : C.g700, fontWeight: 700, fontFamily: "'Outfit',sans-serif", fontSize: '.68rem', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+                >{t('Prev','முந்தையது')}</button>
+                {uniquePages.map((p, idx) =>
+                  p === '...'
+                    ? <span key={idx} style={{ width: 27, textAlign: 'center', color: C.ink3 }}>…</span>
+                    : <button
+                        key={p}
+                        onClick={() => setPage(p)}
+                        style={{ width: 27, height: 27, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${page === p ? C.g700 : C.line}`, borderRadius: 4, fontFamily: "'Outfit',sans-serif", fontSize: '.68rem', fontWeight: 700, cursor: 'pointer', background: page === p ? C.g700 : C.white, color: page === p ? '#fff' : C.ink3, transition: 'all .15s' }}
+                      >{p}</button>
+                )}
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages || totalPages === 0}
+                  style={{ width: 32, height: 27, border: `1px solid ${page === totalPages || totalPages === 0 ? C.line : C.g700}`, borderRadius: 4, background: page === totalPages || totalPages === 0 ? C.line2 : C.white, color: page === totalPages || totalPages === 0 ? C.ink3 : C.g700, fontWeight: 700, fontFamily: "'Outfit',sans-serif", fontSize: '.68rem', cursor: page === totalPages || totalPages === 0 ? 'not-allowed' : 'pointer' }}
+                >{t('Next','அடுத்தது')}</button>
+                <button
+                  onClick={() => setPage(totalPages)}
+                  disabled={page === totalPages || totalPages === 0}
+                  style={{ width: 32, height: 27, border: `1px solid ${page === totalPages || totalPages === 0 ? C.line : C.g700}`, borderRadius: 4, background: page === totalPages || totalPages === 0 ? C.line2 : C.white, color: page === totalPages || totalPages === 0 ? C.ink3 : C.g700, fontWeight: 700, fontFamily: "'Outfit',sans-serif", fontSize: '.68rem', cursor: page === totalPages || totalPages === 0 ? 'not-allowed' : 'pointer' }}
+                >{t('Last','இறுதி')}</button>
+              </div>
+              <div style={{ fontSize: '.7rem', color: C.ink3 }}>
+                {Math.min((page-1)*pageSize+1, filteredSorted.length)}–{Math.min(page*pageSize, filteredSorted.length)} {t('of','இல்')} {filteredSorted.length}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Table */}
@@ -712,6 +845,7 @@ export default function Voters() {
         </div>
       )}
 
+
       {/* Pagination */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '.75rem 1.5rem', background: C.white, borderTop: `1px solid ${C.line}`, flexWrap: 'wrap', gap: '.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '.7rem', color: C.ink3 }}>
@@ -722,13 +856,75 @@ export default function Voters() {
             <option value={100}>100</option>
           </select>
         </div>
-        <div style={{ display: 'flex', gap: 2 }}>
-          {[...Array(Math.min(totalPages, 7))].map((_, i) => {
-            const p = i + 1
-            return (
-              <button key={p} onClick={() => setPage(p)} style={{ width: 27, height: 27, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${page === p ? C.g700 : C.line}`, borderRadius: 4, fontFamily: "'Outfit',sans-serif", fontSize: '.68rem', fontWeight: 700, cursor: 'pointer', background: page === p ? C.g700 : C.white, color: page === p ? '#fff' : C.ink3, transition: 'all .15s' }}>{p}</button>
-            )
-          })}
+        <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <button
+            onClick={() => setPage(1)}
+            disabled={page === 1}
+            style={{ width: 32, height: 27, border: `1px solid ${page === 1 ? C.line : C.g700}`, borderRadius: 4, background: page === 1 ? C.line2 : C.white, color: page === 1 ? C.ink3 : C.g700, fontWeight: 700, fontFamily: "'Outfit',sans-serif", fontSize: '.68rem', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+          >{t('First','முதல்')}</button>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            style={{ width: 32, height: 27, border: `1px solid ${page === 1 ? C.line : C.g700}`, borderRadius: 4, background: page === 1 ? C.line2 : C.white, color: page === 1 ? C.ink3 : C.g700, fontWeight: 700, fontFamily: "'Outfit',sans-serif", fontSize: '.68rem', cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+          >{t('Prev','முந்தையது')}</button>
+          {/* Page numbers window */}
+          {(() => {
+            const windowSize = 2; // pages before/after current
+            let start = Math.max(1, page - windowSize);
+            let end = Math.min(totalPages, page + windowSize);
+            // Ensure window is always 2*windowSize+1 if possible
+            if (end - start < 2 * windowSize) {
+              if (start === 1) {
+                end = Math.min(totalPages, start + 2 * windowSize);
+              } else if (end === totalPages) {
+                start = Math.max(1, end - 2 * windowSize);
+              }
+            }
+            // Clamp to valid range
+            start = Math.max(1, start);
+            end = Math.min(totalPages, end);
+            const pages = [];
+            if (totalPages <= 2 * windowSize + 3) {
+              // Show all pages if not too many
+              for (let p = 1; p <= totalPages; ++p) pages.push(p);
+            } else {
+              if (start > 1) {
+                pages.push(1);
+                if (start > 2) pages.push('...');
+              }
+              for (let p = start; p <= end; ++p) {
+                if (p !== 1 && p !== totalPages) pages.push(p);
+              }
+              if (end < totalPages) {
+                if (end < totalPages - 1) pages.push('...');
+                pages.push(totalPages);
+              }
+            }
+            // Remove duplicates
+            const uniquePages = [];
+            for (let i = 0; i < pages.length; ++i) {
+              if (i === 0 || pages[i] !== pages[i - 1]) uniquePages.push(pages[i]);
+            }
+            return uniquePages.map((p, idx) =>
+              p === '...'
+                ? <span key={idx} style={{ width: 27, textAlign: 'center', color: C.ink3 }}>…</span>
+                : <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    style={{ width: 27, height: 27, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${page === p ? C.g700 : C.line}`, borderRadius: 4, fontFamily: "'Outfit',sans-serif", fontSize: '.68rem', fontWeight: 700, cursor: 'pointer', background: page === p ? C.g700 : C.white, color: page === p ? '#fff' : C.ink3, transition: 'all .15s' }}
+                  >{p}</button>
+            );
+          })()}
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages || totalPages === 0}
+            style={{ width: 32, height: 27, border: `1px solid ${page === totalPages || totalPages === 0 ? C.line : C.g700}`, borderRadius: 4, background: page === totalPages || totalPages === 0 ? C.line2 : C.white, color: page === totalPages || totalPages === 0 ? C.ink3 : C.g700, fontWeight: 700, fontFamily: "'Outfit',sans-serif", fontSize: '.68rem', cursor: page === totalPages || totalPages === 0 ? 'not-allowed' : 'pointer' }}
+          >{t('Next','அடுத்தது')}</button>
+          <button
+            onClick={() => setPage(totalPages)}
+            disabled={page === totalPages || totalPages === 0}
+            style={{ width: 32, height: 27, border: `1px solid ${page === totalPages || totalPages === 0 ? C.line : C.g700}`, borderRadius: 4, background: page === totalPages || totalPages === 0 ? C.line2 : C.white, color: page === totalPages || totalPages === 0 ? C.ink3 : C.g700, fontWeight: 700, fontFamily: "'Outfit',sans-serif", fontSize: '.68rem', cursor: page === totalPages || totalPages === 0 ? 'not-allowed' : 'pointer' }}
+          >{t('Last','இறுதி')}</button>
         </div>
         <div style={{ fontSize: '.7rem', color: C.ink3 }}>
           {Math.min((page-1)*pageSize+1, filteredSorted.length)}–{Math.min(page*pageSize, filteredSorted.length)} {t('of','இல்')} {filteredSorted.length}

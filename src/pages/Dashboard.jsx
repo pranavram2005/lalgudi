@@ -3,7 +3,29 @@ import { useLang } from '../context/LangContext'
 import { useBreakpoint } from '../hooks/useBreakpoint'
 import { Footer } from '../components/ui'
 import { C } from '../data'
-import voters from '../voters/output_with_roof_laalgui.jsx'
+import data1 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-1-WI_with_roof'
+import data2 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-2-WI_with_roof'
+import data3 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-3-WI_with_roof'
+import data4 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-4-WI_with_roof'
+import data5 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-5-WI_with_roof'
+import data6 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-6-WI_with_roof'
+import data7 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-7-WI_with_roof'
+import data8 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-8-WI_with_roof'
+import data9 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-9-WI_with_roof'
+import data10 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-10-WI_with_roof'
+
+const allVotersData = [
+  ...data1,
+  ...data2,
+  ...data3,
+  ...data4,
+  ...data5,
+  ...data6,
+  ...data7,
+  ...data8,
+  ...data9,
+  ...data10,
+]
 import { useAuth } from '../context/AuthContext'
 
 const initialAgeGroups = () => ({
@@ -140,9 +162,9 @@ export default function Dashboard() {
   const dataset = useMemo(() => {
     if (isAgentView) {
       const booth = (user?.boothNumber ?? '').toString()
-      return (voters ?? []).filter(row => String(row?.Part ?? '') === booth)
+      return (allVotersData ?? []).filter(row => String(row?.Part ?? '') === booth)
     }
-    return voters ?? []
+    return allVotersData ?? []
   }, [isAgentView, user])
   const baseStats = useMemo(() => computeBaseStats(dataset), [dataset])
   const [confirmation, setConfirmation] = useState({ count: 0, percent: 0 })
