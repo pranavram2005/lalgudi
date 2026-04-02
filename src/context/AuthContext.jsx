@@ -1,114 +1,75 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 const SESSION_KEY = 'lalgudi:session'
-const LEGACY_ADMIN_KEY = 'lalgudi:isAdmin'
-const AGENT_STORE_KEY = 'boothAgents'
 
 const AuthContext = createContext({
   user: null,
   isAdmin: false,
   isAgent: false,
   loading: true,
-  login: () => ({ success: false }),
+  login: async () => ({ success: false }),
   logout: () => {},
 })
-
-const readStoredAgents = () => {
-  if (typeof window === 'undefined') return []
-  try {
-    return JSON.parse(window.localStorage.getItem(AGENT_STORE_KEY) || '[]')
-  } catch (err) {
-    return []
-  }
-}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      setLoading(false)
-      return
-    }
-
     try {
       const stored = window.localStorage.getItem(SESSION_KEY)
-      if (stored) {
-        setUser(JSON.parse(stored))
-        return
-      }
-      const legacyAdmin = window.localStorage.getItem(LEGACY_ADMIN_KEY)
-      if (legacyAdmin === 'true') {
-        const adminSession = { role: 'admin', username: 'admin' }
-        window.localStorage.setItem(SESSION_KEY, JSON.stringify(adminSession))
-        window.localStorage.removeItem(LEGACY_ADMIN_KEY)
-        setUser(adminSession)
-      }
+      if (stored) setUser(JSON.parse(stored))
     } finally {
       setLoading(false)
     }
   }, [])
 
   const persistSession = (nextUser) => {
-    if (typeof window !== 'undefined') {
-      if (nextUser) {
-        window.localStorage.setItem(SESSION_KEY, JSON.stringify(nextUser))
-      } else {
-        window.localStorage.removeItem(SESSION_KEY)
-      }
-    }
+    if (nextUser) window.localStorage.setItem(SESSION_KEY, JSON.stringify(nextUser))
+    else window.localStorage.removeItem(SESSION_KEY)
   }
 
-  const login = (username = '', password = '') => {
-    const trimmedUsername = username.trim()
-    if (!trimmedUsername || !password) {
-      return { success: false, message: 'Invalid credentials' }
+  const login = async (username = '', password = '') => {
+    const trimmed = username.trim()
+    if (!trimmed || !password) return { success: false, message: 'Enter username and password' }
+
+    const { data, error } = await supabase.rpc('verify_agent_login', {
+      p_username: trimmed,
+      p_password: password,
+    })
+
+    if (error || !data) return { success: false, message: 'Invalid username or password' }
+
+    // For zonal agents, also fetch their assigned wards
+    let wards = []
+    if (data.role === 'zonal_agent') {
+      const { data: wardRows } = await supabase
+        .from('agent_ward_assignments')
+        .select('ward')
+        .eq('agent_id', data.id)
+      wards = (wardRows || []).map(r => r.ward)
     }
 
-    if (trimmedUsername === 'admin' && password === 'admin123') {
-      const adminSession = { role: 'admin', username: 'admin' }
-      setUser(adminSession)
-      persistSession(adminSession)
-      return { success: true, role: 'admin' }
-    }
-
-    const agents = readStoredAgents()
-    const match = agents.find(agent => (
-      agent?.username === trimmedUsername &&
-      agent?.password === password &&
-      agent?.isActive !== false
-    ))
-
-    if (match) {
-      const agentSession = {
-        role: 'agent',
-        username: match.username,
-        boothNumber: match.boothNumber,
-      }
-      setUser(agentSession)
-      persistSession(agentSession)
-      return { success: true, role: 'agent' }
-    }
-
-    return { success: false, message: 'Invalid credentials' }
+    const session = { ...data, wards }
+    setUser(session)
+    persistSession(session)
+    return { success: true, role: data.role }
   }
 
   const logout = () => {
     persistSession(null)
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(LEGACY_ADMIN_KEY)
-    }
     setUser(null)
   }
 
   const value = useMemo(() => ({
     user,
-    isAdmin: user?.role === 'admin',
-    isAgent: user?.role === 'agent',
+    isAdmin: user?.role === 'superadmin',
+    isAgent: user !== null && user?.role !== 'superadmin',
     loading,
     login,
     logout,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [user, loading])
 
   return (

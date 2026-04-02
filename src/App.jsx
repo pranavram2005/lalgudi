@@ -12,7 +12,11 @@ import Login     from './pages/Login'
 import AddBoothAgent from './pages/AddBoothAgent'
 import AdminProgress from './pages/AdminProgress'
 import AdminAgentDetail from './pages/AdminAgentDetail'
+import Agents from './pages/Agents'
 import { useAuth } from './context/AuthContext'
+
+const ALL_ROLES = ['superadmin', 'zonal_agent', 'ward_agent', 'booth_agent']
+const ADMIN_ONLY = ['superadmin']
 
 function ProtectedRoute({ children, roles }) {
   const { user } = useAuth()
@@ -20,7 +24,7 @@ function ProtectedRoute({ children, roles }) {
     return <Navigate to="/login" replace />
   }
   if (roles && !roles.includes(user.role)) {
-    const fallback = user.role === 'admin' ? '/' : '/dashboard'
+    const fallback = user.role === 'superadmin' ? '/' : '/dashboard'
     return <Navigate to={fallback} replace />
   }
   return children
@@ -40,16 +44,17 @@ export default function App() {
       ) : (
         <Routes>
           <Route path="/login" element={user ? <Navigate to={homePath} replace /> : <Login />} />
-          <Route path="/" element={<ProtectedRoute roles={['admin','agent']}><Overview /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute roles={['admin','agent']}><Dashboard /></ProtectedRoute>} />
-          <Route path="/history" element={<ProtectedRoute roles={['admin','agent']}><History /></ProtectedRoute>} />
-          <Route path="/caste" element={<ProtectedRoute roles={['admin','agent']}><Caste /></ProtectedRoute>} />
-          <Route path="/strategy" element={<ProtectedRoute roles={['admin','agent']}><Strategy /></ProtectedRoute>} />
-          <Route path="/map" element={<ProtectedRoute roles={['admin','agent']}><MapPage /></ProtectedRoute>} />
-          <Route path="/voters" element={<ProtectedRoute roles={['admin','agent']}><Voters /></ProtectedRoute>} />
-          <Route path="/admin/booth-agent" element={<ProtectedRoute roles={['admin']}><AddBoothAgent /></ProtectedRoute>} />
-          <Route path="/admin/progress" element={<ProtectedRoute roles={['admin']}><AdminProgress /></ProtectedRoute>} />
-          <Route path="/admin/agents/:agentId" element={<ProtectedRoute roles={['admin']}><AdminAgentDetail /></ProtectedRoute>} />
+          <Route path="/" element={<ProtectedRoute roles={ALL_ROLES}><Overview /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute roles={ALL_ROLES}><Dashboard /></ProtectedRoute>} />
+          <Route path="/history" element={<ProtectedRoute roles={ALL_ROLES}><History /></ProtectedRoute>} />
+          <Route path="/caste" element={<ProtectedRoute roles={ALL_ROLES}><Caste /></ProtectedRoute>} />
+          <Route path="/strategy" element={<ProtectedRoute roles={ALL_ROLES}><Strategy /></ProtectedRoute>} />
+          <Route path="/map" element={<ProtectedRoute roles={ALL_ROLES}><MapPage /></ProtectedRoute>} />
+          <Route path="/voters" element={<ProtectedRoute roles={ALL_ROLES}><Voters /></ProtectedRoute>} />
+          <Route path="/admin/booth-agent" element={<ProtectedRoute roles={ADMIN_ONLY}><AddBoothAgent /></ProtectedRoute>} />
+          <Route path="/admin/progress" element={<ProtectedRoute roles={ADMIN_ONLY}><AdminProgress /></ProtectedRoute>} />
+          <Route path="/admin/agents/:agentId" element={<ProtectedRoute roles={ADMIN_ONLY}><AdminAgentDetail /></ProtectedRoute>} />
+          <Route path="/admin/agents" element={<ProtectedRoute roles={ADMIN_ONLY}><Agents /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to={user ? homePath : '/login'} replace />} />
         </Routes>
       )}

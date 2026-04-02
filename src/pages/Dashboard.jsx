@@ -1,342 +1,597 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useLang } from '../context/LangContext'
 import { useBreakpoint } from '../hooks/useBreakpoint'
 import { Footer } from '../components/ui'
 import { C } from '../data'
-import data1 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-1-WI_with_roof'
-import data2 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-2-WI_with_roof'
-import data3 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-3-WI_with_roof'
-import data4 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-4-WI_with_roof'
-import data5 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-5-WI_with_roof'
-import data6 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-6-WI_with_roof'
-import data7 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-7-WI_with_roof'
-import data8 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-8-WI_with_roof'
-import data9 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-9-WI_with_roof'
-import data10 from '../voters/2026-EROLLGEN-S22-143-SIR-DraftRoll-Revision1-TAM-10-WI_with_roof'
-
-const allVotersData = [
-  ...data1,
-  ...data2,
-  ...data3,
-  ...data4,
-  ...data5,
-  ...data6,
-  ...data7,
-  ...data8,
-  ...data9,
-  ...data10,
-]
+import { fetchBoothStats } from '../lib/fetchBoothStats'
+import { fetchLocationCounts } from '../lib/supabase'
+import BoothDropdown from '../components/BoothDropdown'
 import { useAuth } from '../context/AuthContext'
 
-const initialAgeGroups = () => ({
-  '18-20': 0,
-  '21-25': 0,
-  '26-40': 0,
-  '41-50': 0,
-  '51-70+': 0,
-})
+// ─── Add to your index.html ──────────────────────────────────────
+// <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-const normaliseText = (value) => (value ?? '').toString().trim()
-
-const computeBaseStats = (dataset) => {
-  const totals = {
-    totalVoters: dataset.length,
-    constituencies: 0,
-    wards: 0,
-    taluks: 0,
-    booths: 0,
-    streets: 0,
-    maleVoters: 0,
-    femaleVoters: 0,
-    transgenderVoters: 0,
-    ageGroups: initialAgeGroups(),
-  }
-
-  const constituencySet = new Set()
-  const wardSet = new Set()
-  const talukSet = new Set()
-  const boothSet = new Set()
-  const streetSet = new Set()
-
-  dataset.forEach(voter => {
-    const constituency = normaliseText(voter['Constituency'])
-    const ward = normaliseText(voter['Ward'])
-    const taluk = normaliseText(voter['Division'])
-    const street = normaliseText(voter['Village'])
-    const booth = voter['Part']
-
-    if (constituency) constituencySet.add(constituency)
-    if (ward) wardSet.add(ward)
-    if (taluk) talukSet.add(taluk)
-    if (street) streetSet.add(street)
-    if (booth !== undefined && booth !== null && booth !== '') boothSet.add(String(booth))
-
-    const gender = normaliseText(voter['Gender']).toLowerCase()
-    if (!gender) {
-      return
-    }
-    if (gender.includes('பெண்') || gender === 'f' || gender.includes('female')) {
-      totals.femaleVoters += 1
-    } else if (gender.includes('திரு') || gender.includes('trans') || gender === 'other') {
-      totals.transgenderVoters += 1
-    } else {
-      totals.maleVoters += 1
-    }
-
-    const age = Number(voter['Age'])
-    if (!Number.isFinite(age)) return
-    if (age >= 18 && age <= 20) totals.ageGroups['18-20'] += 1
-    else if (age >= 21 && age <= 25) totals.ageGroups['21-25'] += 1
-    else if (age >= 26 && age <= 40) totals.ageGroups['26-40'] += 1
-    else if (age >= 41 && age <= 50) totals.ageGroups['41-50'] += 1
-    else if (age >= 51) totals.ageGroups['51-70+'] += 1
-  })
-
-  totals.constituencies = constituencySet.size
-  totals.wards = wardSet.size
-  totals.taluks = talukSet.size
-  totals.streets = streetSet.size
-  totals.booths = boothSet.size
-  return totals
+// ─── Design tokens — same C.* values, layered on top ────────────
+const T = {
+  g900:  '#0B2618',
+  g800:  '#143D26',
+  g700:  '#1A5C35',
+  g600:  C.g600 || '#2E7D52',
+  g400:  '#4CAF50',
+  g200:  '#A8D5B5',
+  g50:   '#F0FAF3',
+  au2:   C.au2  || '#D4A017',
+  white: C.white || '#FFFFFF',
+  ink:   C.ink   || '#111111',
+  ink2:  C.ink2  || '#333333',
+  ink3:  C.ink3  || '#666666',
+  line:  C.line  || '#E5E7EB',
 }
 
-const StatCard = ({ number = 0, label, accent = C.au2 }) => (
+// ─── Inject Chart.js if not already on page ──────────────────────
+function ensureChartJS() {
+  return new Promise((resolve) => {
+    if (window.Chart) { resolve(); return }
+    const s = document.createElement('script')
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
+    s.onload = resolve
+    document.head.appendChild(s)
+  })
+}
+
+// ─── Stat Card ───────────────────────────────────────────────────
+const StatCard = ({ number = 0, label, accent = T.au2, icon }) => (
   <div
     style={{
-      border: `1px solid ${accent}`,
-      borderRadius: 14,
-      padding: '1.1rem',
-      background: C.white,
-      boxShadow: '0 10px 28px rgba(12,53,34,.08)',
+      position: 'relative',
+      borderRadius: 20,
+      padding: '1.4rem 1.6rem',
+      background: T.white,
+      border: `1.5px solid ${T.line}`,
+      overflow: 'hidden',
+      boxShadow: '0 2px 16px rgba(11,38,24,0.07)',
       display: 'flex',
       flexDirection: 'column',
-      alignItems: 'flex-start',
-      gap: '.35rem',
-      minHeight: 120,
+      gap: '.5rem',
+      minHeight: 130,
+      transition: 'transform .2s, box-shadow .2s',
+      cursor: 'default',
+    }}
+    onMouseEnter={e => {
+      e.currentTarget.style.transform  = 'translateY(-3px)'
+      e.currentTarget.style.boxShadow  = '0 8px 32px rgba(11,38,24,0.13)'
+    }}
+    onMouseLeave={e => {
+      e.currentTarget.style.transform  = 'translateY(0)'
+      e.currentTarget.style.boxShadow  = '0 2px 16px rgba(11,38,24,0.07)'
     }}
   >
-    <span style={{ fontSize: 'clamp(1.6rem, 3vw, 2.3rem)', fontWeight: 900, color: C.ink, letterSpacing: '-.01em' }}>
+    {/* top accent stripe */}
+    <div style={{
+      position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+      background: accent, borderRadius: '20px 20px 0 0',
+    }} />
+    {/* faint background circle */}
+    <div style={{
+      position: 'absolute', bottom: -24, right: -16,
+      width: 90, height: 90, borderRadius: '50%',
+      background: accent, opacity: .07,
+    }} />
+    {icon && (
+      <span style={{ fontSize: 20, lineHeight: 1, marginBottom: 2 }}>{icon}</span>
+    )}
+    <span style={{
+      fontFamily: "'Georgia','Times New Roman',serif",
+      fontSize: 'clamp(1.8rem,3vw,2.4rem)',
+      fontWeight: 900,
+      color: T.g900,
+      letterSpacing: '-.02em',
+      lineHeight: 1,
+    }}>
       {Number(number).toLocaleString()}
     </span>
-    <span style={{ fontSize: '.7rem', letterSpacing: '.12em', textTransform: 'uppercase', color: C.ink3 }}>
+    <span style={{
+      fontSize: '.6rem', fontWeight: 700,
+      textTransform: 'uppercase', letterSpacing: '.12em', color: T.ink3,
+    }}>
       {label}
     </span>
   </div>
 )
 
-const GenderStat = ({ icon, label, count, accent }) => (
-  <div style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-    borderRadius: 14,
-    border: `1px solid ${accent}`,
-    padding: '1rem',
-    background: C.white,
-    boxShadow: '0 10px 24px rgba(12,53,34,.06)'
-  }}>
+// ─── Gender Card ─────────────────────────────────────────────────
+const GenderStat = ({ icon, label, count, accent, pct }) => (
+  <div
+    style={{
+      display: 'flex', alignItems: 'center', gap: '1.1rem',
+      borderRadius: 18, border: `1.5px solid ${T.line}`,
+      padding: '1.1rem 1.4rem', background: T.white, flex: 1,
+      boxShadow: '0 2px 12px rgba(11,38,24,0.06)',
+      position: 'relative', overflow: 'hidden',
+      transition: 'transform .2s', cursor: 'default',
+    }}
+    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+    onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+  >
+    {/* bottom progress bar */}
     <div style={{
-      width: 52,
-      height: 52,
-      borderRadius: '50%',
-      background: accent,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: '1.4rem',
-      color: C.white,
-      fontWeight: 700,
-    }}>{icon}</div>
+      position: 'absolute', bottom: 0, left: 0,
+      height: 3, width: `${pct}%`,
+      background: accent, borderRadius: 99, transition: 'width 1s ease',
+    }} />
+    <div style={{
+      width: 50, height: 50, borderRadius: 14,
+      background: accent + '22', border: `1.5px solid ${accent}44`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 22, flexShrink: 0, color: accent, fontWeight: 700,
+    }}>
+      {icon}
+    </div>
     <div>
-      <div style={{ fontSize: '1.2rem', fontWeight: 800, color: C.ink }}>{Number(count).toLocaleString()}</div>
-      <div style={{ fontSize: '.7rem', letterSpacing: '.12em', textTransform: 'uppercase', color: C.ink3, marginTop: '.1rem' }}>{label}</div>
+      <div style={{
+        fontFamily: "'Georgia','Times New Roman',serif",
+        fontSize: '1.35rem', fontWeight: 800,
+        color: T.g900, lineHeight: 1, letterSpacing: '-.01em',
+      }}>
+        {Number(count).toLocaleString()}
+      </div>
+      <div style={{
+        fontSize: '.6rem', fontWeight: 700,
+        textTransform: 'uppercase', letterSpacing: '.1em',
+        color: T.ink3, marginTop: 3,
+      }}>
+        {label}
+      </div>
+      <div style={{ fontSize: '.68rem', color: accent, fontWeight: 600, marginTop: 2 }}>
+        {pct.toFixed(1)}%
+      </div>
     </div>
   </div>
 )
 
-export default function Dashboard() {
-  const { lang, t } = useLang()
-  const { isTablet, isMobile } = useBreakpoint()
-  const { user } = useAuth()
-  const isAgentView = user?.role === 'agent'
-  const dataset = useMemo(() => {
-    if (isAgentView) {
-      const booth = (user?.boothNumber ?? '').toString()
-      return (allVotersData ?? []).filter(row => String(row?.Part ?? '') === booth)
-    }
-    return allVotersData ?? []
-  }, [isAgentView, user])
-  const baseStats = useMemo(() => computeBaseStats(dataset), [dataset])
-  const [confirmation, setConfirmation] = useState({ count: 0, percent: 0 })
+// ─── Confirmation Doughnut (Chart.js) ────────────────────────────
+function ConfirmationRing({ confirmed, total }) {
+  const canvasRef = useRef(null)
+  const chartRef  = useRef(null)
+  const pct = total ? ((confirmed / total) * 100).toFixed(1) : 0
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined
-    try {
-      const raw = window.localStorage.getItem('voterChecklists')
-      if (!raw) {
-        setConfirmation({ count: 0, percent: 0 })
-        return undefined
+    if (!canvasRef.current || !window.Chart) return
+    if (chartRef.current) chartRef.current.destroy()
+    chartRef.current = new window.Chart(canvasRef.current, {
+      type: 'doughnut',
+      data: {
+        datasets: [{
+          data: [confirmed, Math.max(0, total - confirmed)],
+          backgroundColor: [T.g600, T.line],
+          borderWidth: 0,
+          hoverOffset: 4,
+        }]
+      },
+      options: {
+        cutout: '78%',
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        animation: { animateRotate: true, duration: 900 },
       }
-      const parsed = JSON.parse(raw)
-      const count = Object.values(parsed || {}).filter(entry => entry && entry.confirmed).length
-      const percent = dataset.length ? (count / dataset.length) * 100 : 0
-      setConfirmation({ count, percent })
-    } catch (err) {
-      setConfirmation({ count: 0, percent: 0 })
-    }
-    return undefined
-  }, [dataset.length])
-
-  const stats = {
-    ...baseStats,
-    confirmedCount: confirmation.count,
-    confirmationPercent: confirmation.percent,
-  }
-
-  const label = {
-    title: t('Voter Intelligence Dashboard', 'வாக்காளர் நுண்ணறிவு டாஷ்போர்டு'),
-    subtitle: t('Live field intelligence snapshot · auto-refreshes with your checklist updates.', 'தங்களது களப் பட்டியல் புதுப்பிப்புகளுடன் ஒத்திசைக்கப்படும் நேரடி கண்காணிப்பு.'),
-    boothTitle: t('Booth {{num}} Intelligence Dashboard', 'பூத் {{num}} நுண்ணறிவு டாஷ்போர்டு'),
-    boothSubtitle: t('Showing live metrics for Booth {{num}} only.', 'பூத் {{num}} தொடர்பான தரவுகளை மட்டும் காட்டுகிறது.'),
-    confirmation: t('Overall Vote Confirmation Progress', 'மொத்த வாக்கு உறுதி முன்னேற்றம்'),
-    confirmedOf: t('voters confirmed', 'வாக்காளர்கள் உறுதி செய்யப்பட்டனர்'),
-    constituencies: t('Constituencies', 'தொகுதிகள்'),
-    booths: t('Booths', 'வாக்குச்சாவடிகள்'),
-    wards: t('Wards', 'வார்டுகள்'),
-    nagars: t('Nagars / Divisions', 'நகரங்கள் / பிரிவுகள்'),
-    streets: t('Village / Streets', 'கிராமங்கள் / தெருக்கள்'),
-    voters: t('Voters', 'வாக்காளர்கள்'),
-    gender: t('Gender Split', 'பாலினப் பகிர்வு'),
-    male: t('Male', 'ஆண்'),
-    female: t('Female', 'பெண்'),
-    transgender: t('Transgender', 'திருநங்கை'),
-    voterAgeGraph: t('Voter Age Graph', 'வாக்காளர் வயது வரைபடம்'),
-    voterAxis: t('No. of Voters', 'வாக்காளர்களின் எண்ணிக்கை'),
-    guidance: t('Use the navigation above to jump between dashboard intelligence and detailed voter files.', 'டாஷ்போர்டு பொறிமுறையும் விரிவான வாக்காளர் பதிவுகளும் இடையே நகர மெனுவைப் பயன்படுத்தவும்.'),
-  }
-
-  const maxAgeCount = Math.max(0, ...Object.values(stats.ageGroups || {}))
-  const midAgeCount = Math.round(maxAgeCount / 2)
-
-  const scopedTitle = isAgentView
-    ? label.boothTitle.replace('{{num}}', user?.boothNumber || '')
-    : label.title
-  const scopedSubtitle = isAgentView
-    ? label.boothSubtitle.replace('{{num}}', user?.boothNumber || '')
-    : label.subtitle
+    })
+    return () => chartRef.current?.destroy()
+  }, [confirmed, total])
 
   return (
-    <div style={{ paddingTop: 96, background: C.white }}>
-      <div style={{
-        background: C.white,
-        color: C.ink,
-        minHeight: 'calc(100vh - 96px)',
-        padding: isTablet ? '1.6rem 1.2rem 2.2rem' : '2.6rem 3.2rem 3rem',
-      }}>
-        <div style={{ maxWidth: 1220, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          <header>
-            <p style={{ fontSize: '.7rem', letterSpacing: '.14em', textTransform: 'uppercase', color: C.ink3, marginBottom: '.4rem' }}>
-              {lang === 'ta' ? 'அறிக்கை · 23 ஏப்ரல் 2026' : 'Report · 23 April 2026'}
-            </p>
-            <h1 style={{ fontFamily: "'Outfit',sans-serif", fontSize: isTablet ? '2rem' : '2.6rem', fontWeight: 900, margin: 0, color: C.ink }}>{scopedTitle}</h1>
-            <p style={{ fontSize: '.95rem', color: C.ink2, marginTop: '.6rem', maxWidth: 720 }}>{scopedSubtitle}</p>
-            {isAgentView && (
-              <div style={{
-                marginTop: '.9rem',
-                padding: '.85rem 1rem',
-                borderRadius: 14,
-                border: '1px solid rgba(62,179,112,.35)',
-                background: 'rgba(62,179,112,.12)',
-                color: C.g700,
-                fontSize: '.85rem',
-                fontWeight: 600,
-              }}>
-                {t('You are seeing only the voters assigned to Booth {{num}}.', 'பூத் {{num}}-க்கு உங்களிடம் ஒதுக்கப்பட்ட வாக்காளர்கள் மட்டுமே காட்டப்படுகின்றனர்.').replace('{{num}}', user?.boothNumber || '')}
-              </div>
-            )}
-          </header>
-
-          <section style={{
-            borderRadius: 16,
-            border: `1px solid ${C.line}`,
-            padding: isTablet ? '1.2rem' : '1.6rem',
-            background: C.white,
-            boxShadow: '0 10px 30px rgba(15,42,26,.08)',
+    <div style={{
+      borderRadius: 20, border: `1.5px solid ${T.line}`,
+      background: T.white, padding: '1.6rem',
+      boxShadow: '0 2px 16px rgba(11,38,24,0.07)',
+      display: 'flex', alignItems: 'center', gap: '1.6rem',
+      flex: 1, minWidth: 260,
+    }}>
+      <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
+        <canvas ref={canvasRef} />
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{
+            fontFamily: "'Georgia','Times New Roman',serif",
+            fontSize: '1.3rem', fontWeight: 900,
+            color: T.g700, lineHeight: 1,
           }}>
-            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '1rem', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '1rem' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '.75rem', letterSpacing: '.18em', textTransform: 'uppercase', color: C.ink3, marginBottom: '.3rem' }}>{label.confirmation}</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: C.ink }}>
-                  {stats.confirmedCount.toLocaleString()} / {stats.totalVoters.toLocaleString()} · {stats.confirmationPercent.toFixed(1)}%
-                </div>
-                <div style={{ fontSize: '.8rem', color: C.ink2, marginTop: '.2rem' }}>{label.confirmedOf}</div>
-              </div>
-              <div style={{ flex: 1, width: '100%' }}>
-                <div style={{ height: 16, borderRadius: 999, background: C.line2, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${stats.confirmationPercent}%`, background: `linear-gradient(90deg, ${C.g500}, ${C.g300})`, transition: 'width .4s ease' }} />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section style={{ display: 'grid', gridTemplateColumns: isTablet ? 'repeat(auto-fit,minmax(180px,1fr))' : 'repeat(3,1fr)', gap: '1rem' }}>
-            <StatCard number={stats.constituencies} label={label.constituencies} accent={C.au2} />
-            <StatCard number={stats.booths} label={label.booths} accent={C.g500} />
-            <StatCard number={stats.wards} label={label.wards} accent={C.g300} />
-            <StatCard number={stats.taluks} label={label.nagars} accent={C.g600} />
-            <StatCard number={stats.streets} label={label.streets} accent={C.ink2} />
-            <StatCard number={stats.totalVoters} label={label.voters} accent={C.au} />
-          </section>
-
-          <section style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : '1.15fr 1fr', gap: isTablet ? '1.6rem' : '2.4rem' }}>
-            <div style={{
-              borderRadius: 16,
-              border: `1px solid ${C.line}`,
-              padding: isTablet ? '1.1rem' : '1.5rem',
-              background: C.white,
-              boxShadow: '0 8px 24px rgba(15,42,26,.08)',
-            }}>
-              <h3 style={{ fontSize: '.75rem', letterSpacing: '.18em', textTransform: 'uppercase', color: C.ink3, marginBottom: '1.2rem' }}>{label.gender}</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '.9rem' }}>
-                <GenderStat icon="♂" label={label.male} count={stats.maleVoters} accent="rgba(74,144,226,.45)" />
-                <GenderStat icon="♀" label={label.female} count={stats.femaleVoters} accent="rgba(236,118,160,.45)" />
-                <GenderStat icon="⚧" label={label.transgender} count={stats.transgenderVoters} accent="rgba(186,129,244,.45)" />
-              </div>
-            </div>
-
-            <div style={{
-              borderRadius: 16,
-              border: `1px solid ${C.line}`,
-              padding: isTablet ? '1.1rem' : '1.5rem',
-              background: C.white,
-              boxShadow: '0 8px 24px rgba(15,42,26,.08)',
-            }}>
-              <h3 style={{ fontSize: '.75rem', letterSpacing: '.18em', textTransform: 'uppercase', color: C.ink3, marginBottom: '1rem' }}>{label.voterAgeGraph}</h3>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: isMobile ? '.6rem' : '1.2rem', minHeight: isMobile ? 200 : 240, paddingBottom: '1rem' }}>
-                {Object.entries(stats.ageGroups).map(([range, count]) => {
-                  const height = maxAgeCount > 0 ? (count / maxAgeCount) * 100 : 0
-                  return (
-                    <div key={range} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <div style={{ fontSize: '.75rem', color: C.ink, fontWeight: 600, marginBottom: '.35rem' }}>{count.toLocaleString()}</div>
-                      <div style={{ width: '100%', display: 'flex', alignItems: 'flex-end', height: '100%' }}>
-                        <div style={{ width: '100%', height: `${height}%`, background: `linear-gradient(180deg, ${C.g500}, ${C.g300})`, borderRadius: '10px 10px 0 0', transition: 'height .4s ease', boxShadow: '0 6px 18px rgba(14,70,40,.2)' }} />
-                      </div>
-                      <div style={{ fontSize: '.7rem', color: C.ink3, marginTop: '.5rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>{range}</div>
-                    </div>
-                  )
-                })}
-              </div>
-              <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: '.6rem', fontSize: '.68rem', color: C.ink3, textAlign: 'right' }}>{label.voterAxis}</div>
-            </div>
-          </section>
-
-          <p style={{ textAlign: 'center', fontSize: '.78rem', color: C.ink3 }}>
-            {isAgentView
-              ? t('Use the tabs to review your booth dashboard and voter file. Other constituencies stay hidden.', 'உங்கள் பூத் டாஷ்போர்டும் வாக்காளர் பட்டியலும் மட்டுமே காண்பிக்கப்படுகின்றன; பிற தொகுதிகள் மறைக்கப்பட்டுள்ளன.')
-              : label.guidance}
-          </p>
+            {pct}%
+          </span>
+          <span style={{
+            fontSize: '.52rem', fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '.08em', color: T.ink3,
+          }}>
+            done
+          </span>
         </div>
       </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
+        <div style={{
+          fontSize: '.6rem', fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '.12em', color: T.ink3,
+        }}>
+          Confirmation Status
+        </div>
+        <div>
+          <div style={{
+            fontFamily: "'Georgia','Times New Roman',serif",
+            fontSize: '1.6rem', fontWeight: 900, color: T.g900, lineHeight: 1,
+          }}>
+            {Number(confirmed).toLocaleString()}
+          </div>
+          <div style={{ fontSize: '.7rem', color: T.ink3, marginTop: 2 }}>
+            confirmed of {Number(total).toLocaleString()}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '.2rem', flexWrap: 'wrap' }}>
+          {[
+            { label: 'Confirmed', color: T.g600 },
+            { label: 'Pending',   color: T.line  },
+          ].map(({ label: l, color }) => (
+            <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '.65rem', color: T.ink3 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: color, display: 'inline-block' }} />
+              {l}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Age Bar Chart (Chart.js) ────────────────────────────────────
+function AgeChart({ ageGroups }) {
+  const canvasRef = useRef(null)
+  const chartRef  = useRef(null)
+
+  useEffect(() => {
+    if (!canvasRef.current || !window.Chart) return
+    if (chartRef.current) chartRef.current.destroy()
+
+    const labels = Object.keys(ageGroups)
+    const values = Object.values(ageGroups)
+    const maxVal  = Math.max(...values)
+
+    chartRef.current = new window.Chart(canvasRef.current, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: values.map(v => v === maxVal ? T.g600 : T.g200),
+          borderRadius: 10,
+          borderSkipped: false,
+          hoverBackgroundColor: T.au2,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: T.g900,
+            titleColor: '#fff',
+            bodyColor: T.g200,
+            padding: 12,
+            cornerRadius: 8,
+            displayColors: false,
+            callbacks: {
+              label: ctx => `${Number(ctx.parsed.y).toLocaleString()} voters`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            border: { display: false },
+            ticks: {
+              font: { family: 'inherit', size: 11, weight: '600' },
+              color: T.ink3,
+            }
+          },
+          y: {
+            grid: { color: T.line, lineWidth: 1 },
+            border: { display: false, dash: [4, 4] },
+            ticks: {
+              font: { family: 'inherit', size: 10 },
+              color: T.ink3,
+              maxTicksLimit: 5,
+              callback: v => Number(v).toLocaleString(),
+            }
+          }
+        },
+        animation: { duration: 800, easing: 'easeOutQuart' },
+      }
+    })
+    return () => chartRef.current?.destroy()
+  }, [ageGroups])
+
+  return (
+    <div style={{
+      borderRadius: 20, border: `1.5px solid ${T.line}`,
+      background: T.white, padding: '1.6rem',
+      boxShadow: '0 2px 16px rgba(11,38,24,0.07)',
+      flex: 2,
+    }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        alignItems: 'flex-start', marginBottom: '1.2rem',
+      }}>
+        <div>
+          <div style={{
+            fontSize: '.6rem', fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '.12em', color: T.ink3,
+          }}>
+            Age Distribution
+          </div>
+          <div style={{
+            fontFamily: "'Georgia','Times New Roman',serif",
+            fontSize: '1.1rem', fontWeight: 800, color: T.g900, marginTop: 2,
+          }}>
+            Voter Age Breakdown
+          </div>
+        </div>
+        <div style={{
+          fontSize: '.62rem', color: T.g700,
+          background: T.g50, borderRadius: 8,
+          padding: '4px 10px', border: `1px solid ${T.g200}`,
+          fontWeight: 600,
+        }}>
+          Hover bars for detail
+        </div>
+      </div>
+      <div style={{ height: 200 }}>
+        <canvas ref={canvasRef} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Section divider label ────────────────────────────────────────
+const SectionLabel = ({ children }) => (
+  <div style={{
+    fontSize: '.58rem', fontWeight: 700,
+    textTransform: 'uppercase', letterSpacing: '.14em', color: T.ink3,
+    display: 'flex', alignItems: 'center', gap: '.6rem',
+    marginBottom: '-.2rem',
+  }}>
+    <span style={{ flex: 1, height: 1, background: T.line }} />
+    {children}
+    <span style={{ flex: 1, height: 1, background: T.line }} />
+  </div>
+)
+
+// ─── Dashboard ───────────────────────────────────────────────────
+export default function Dashboard() {
+  const { t }        = useLang()
+  const { isTablet } = useBreakpoint()
+  const { user }     = useAuth()
+
+  const isBoothAgent = user?.role === 'booth_agent'
+  const isAgentView  = user && user.role !== 'superadmin'
+
+  const [stats,      setStats]      = useState(null)
+  const [loading,    setLoading]    = useState(true)
+  const [adminBooth, setAdminBooth] = useState('')
+  const [chartReady, setChartReady] = useState(false)
+
+  // Load Chart.js once on mount
+  useEffect(() => {
+    ensureChartJS().then(() => setChartReady(true))
+  }, [])
+
+  // ── Same fetch logic as original — untouched ──────────────────
+  useEffect(() => {
+    let boothNumber = null
+    if (isBoothAgent && user?.booth_number != null) {
+      boothNumber = String(user.booth_number)
+    } else if (user?.role === 'superadmin' && adminBooth) {
+      boothNumber = adminBooth
+    }
+
+    Promise.all([
+      fetchBoothStats({ boothNumber }),
+      fetchLocationCounts(boothNumber),
+    ])
+      .then(([data, locationCounts]) => {
+        if (!data || data.length === 0) {
+          setStats(null)
+          setLoading(false)
+          return
+        }
+
+        const sum = (arr, key) =>
+          arr.reduce((acc, row) => acc + (Number(row[key]) || 0), 0)
+
+        const totalVoters       = sum(data, 'total_voters')
+        const maleVoters        = sum(data, 'male_voters')
+        const femaleVoters      = sum(data, 'female_voters')
+        const transgenderVoters = sum(data, 'transgender_voters')
+        const confirmedCount    = sum(data, 'confirmed_count')
+        const age_18_20         = sum(data, 'age_18_20')
+        const age_21_25         = sum(data, 'age_21_25')
+        const age_26_40         = sum(data, 'age_26_40')
+        const age_41_50         = sum(data, 'age_41_50')
+        const age_51_plus       = sum(data, 'age_51_plus')
+        const unique_booths     = new Set(data.map(row => row.part)).size
+
+        setStats({
+          totalVoters,
+          booths:    unique_booths,
+          wards:     locationCounts.wards,
+          streets:   locationCounts.streets,
+          divisions: locationCounts.divisions,
+          maleVoters,
+          femaleVoters,
+          transgenderVoters,
+          confirmedCount,
+          confirmationPercent: totalVoters ? (confirmedCount / totalVoters) * 100 : 0,
+          ageGroups: {
+            '18–20':  age_18_20,
+            '21–25':  age_21_25,
+            '26–40':  age_26_40,
+            '41–50':  age_41_50,
+            '51–70+': age_51_plus,
+          }
+        })
+        setLoading(false)
+      })
+      .catch(err => {
+        // eslint-disable-next-line no-console
+        console.error('Dashboard: fetch error', err)
+        setLoading(false)
+      })
+  }, [isBoothAgent, user, adminBooth])
+
+  // ── Loading ───────────────────────────────────────────────────
+  if (loading || !stats) {
+    return (
+      <div style={{
+        paddingTop: 96, minHeight: '100vh',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: '1rem',
+      }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{
+              width: 10, height: 10, borderRadius: '50%',
+              background: T.g600,
+              animation: 'dash-bounce 1.2s infinite',
+              animationDelay: `${i * 0.2}s`,
+            }} />
+          ))}
+        </div>
+        <span style={{
+          fontSize: '.72rem', fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '.1em', color: T.ink3,
+        }}>
+          Loading dashboard…
+        </span>
+        <style>{`
+          @keyframes dash-bounce {
+            0%,80%,100% { transform: translateY(0); }
+            40%          { transform: translateY(-10px); }
+          }
+        `}</style>
+      </div>
+    )
+  }
+
+  // ── Labels (same as original) ─────────────────────────────────
+  const label = {
+    title:      t('Voter Dashboard',         'வாக்காளர் டாஷ்போர்டு'),
+    boothTitle: t('Booth {{num}} Dashboard', 'பூத் {{num}} டாஷ்போர்டு'),
+    voters:     t('Voters',                  'வாக்காளர்கள்'),
+    booths:     t('Booths',                  'பூத்'),
+    wards:      t('Wards',                   'வார்டுகள்'),
+    streets:    t('Streets',                 'தெருக்கள்'),
+    divisions:  t('Divisions',               'பிரிவுகள்'),
+    male:       t('Male',                    'ஆண்'),
+    female:     t('Female',                  'பெண்'),
+    transgender:t('Transgender',             'திருநங்கை'),
+  }
+
+  const scopedTitle = isAgentView
+    ? label.boothTitle.replace('{{num}}', user?.booth_number || '')
+    : label.title
+
+  const totalGender =
+    (stats.maleVoters + stats.femaleVoters + stats.transgenderVoters) || 1
+
+  return (
+    <div style={{ paddingTop: 96, background: '#F7FAF8', minHeight: '100vh' }}>
+
+      <style>{`
+        @keyframes dash-fade-up {
+          from { opacity: 0; transform: translateY(18px); }
+          to   { opacity: 1; transform: translateY(0);    }
+        }
+        .ds { animation: dash-fade-up .45s ease both; }
+      `}</style>
+
+      <div style={{
+        maxWidth: 1240, margin: '0 auto',
+        padding: isTablet ? '1.5rem 1rem' : '2.5rem 2rem',
+        display: 'flex', flexDirection: 'column', gap: '2.2rem',
+      }}>
+
+        {/* Header */}
+        <div className="ds" style={{ animationDelay: '0s', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <div style={{ fontSize: '.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.14em', color: T.g600, marginBottom: 6 }}>
+              Election Management System
+            </div>
+            <h1 style={{
+              margin: 0,
+              fontFamily: "'Georgia','Times New Roman',serif",
+              fontSize: 'clamp(1.5rem,3vw,2.2rem)',
+              fontWeight: 900, color: T.g900,
+              letterSpacing: '-.02em', lineHeight: 1.1,
+            }}>
+              {scopedTitle}
+            </h1>
+          </div>
+          {user?.role === 'superadmin' && (
+            <div style={{
+              background: T.white, border: `1.5px solid ${T.line}`,
+              borderRadius: 12, padding: '8px 12px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            }}>
+              <BoothDropdown onSelect={setAdminBooth} />
+            </div>
+          )}
+        </div>
+
+        {/* Overview stat cards */}
+        <div className="ds" style={{ animationDelay: '.08s' }}>
+          <SectionLabel>Overview</SectionLabel>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isTablet ? '1fr 1fr' : 'repeat(5,1fr)',
+            gap: '1rem', marginTop: '1.2rem',
+          }}>
+            <StatCard number={stats.totalVoters} label={label.voters}    accent={T.g600}    icon="🗳" />
+            <StatCard number={stats.booths}       label={label.booths}    accent={T.au2}     icon="🏛" />
+            <StatCard number={stats.wards}        label={label.wards}     accent="#4A90E2"   icon="📍" />
+            <StatCard number={stats.streets}      label={label.streets}   accent="#9B59B6"   icon="🛣" />
+            <StatCard number={stats.divisions}    label={label.divisions} accent="#E67E22"   icon="🗺" />
+          </div>
+        </div>
+
+        {/* Gender + Confirmation */}
+        <div className="ds" style={{ animationDelay: '.16s' }}>
+          <SectionLabel>Demographics &amp; Confirmation</SectionLabel>
+          <div style={{
+            display: 'flex', gap: '1rem', marginTop: '1.2rem',
+            flexWrap: isTablet ? 'wrap' : 'nowrap',
+          }}>
+            {/* Gender stack */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: '1rem',
+              flex: 1.4, minWidth: isTablet ? '100%' : 0,
+            }}>
+              <GenderStat icon="♂" label={label.male}        count={stats.maleVoters}        accent="#4A90E2" pct={(stats.maleVoters        / totalGender) * 100} />
+              <GenderStat icon="♀" label={label.female}      count={stats.femaleVoters}      accent="#EC7690" pct={(stats.femaleVoters      / totalGender) * 100} />
+              <GenderStat icon="⚧" label={label.transgender} count={stats.transgenderVoters} accent="#BA81F4" pct={(stats.transgenderVoters / totalGender) * 100} />
+            </div>
+
+            {/* Age Bar Graph replaces Confirmation Status */}
+            {chartReady && (
+              <AgeChart ageGroups={stats.ageGroups} />
+            )}
+          </div>
+        </div>
+
+        {/* Age chart */}
+       
+
+      </div>
+
       <Footer />
     </div>
   )

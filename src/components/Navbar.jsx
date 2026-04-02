@@ -5,8 +5,9 @@ import { C } from '../data'
 import { useBreakpoint } from '../hooks/useBreakpoint'
 import { useAuth } from '../context/AuthContext'
 
-const ADMIN_PROGRESS = { path: '/admin/progress', en: 'Command Room', ta: 'கட்டுப்பாட்டு அறை' }
-const ADMIN_ITEM = { path: '/admin/booth-agent', en: 'Booth Agents', ta: 'பூத் ஏஜெண்ட்கள்' }
+const ADMIN_PROGRESS = { path: '/admin/progress',    en: 'Command Room',   ta: 'கட்டுப்பாட்டு அறை'  }
+const ADMIN_ITEM     = { path: '/admin/booth-agent', en: 'Booth Agents',   ta: 'பூத் ஏஜெண்ட்கள்'   }
+const ADMIN_AGENTS   = { path: '/admin/agents',      en: 'Agent Hierarchy', ta: 'ஏஜெண்ட் படிநிலை' }
 
 const OVERVIEW_CHILDREN = [
   { path: '/history',  en: 'Election History', ta: 'வரலாறு' },
@@ -48,7 +49,7 @@ export default function Navbar() {
   const navItems = useMemo(() => {
     if (!user) return []
     const base = isAdmin ? [...ADMIN_NAV_ITEMS] : [...AGENT_NAV_ITEMS]
-    if (isAdmin) base.push(ADMIN_PROGRESS, ADMIN_ITEM)
+    if (isAdmin) base.push(ADMIN_PROGRESS, ADMIN_ITEM, ADMIN_AGENTS)
     return base.map((item, idx) => ({ ...item, num: String(idx + 1).padStart(2, '0') }))
   }, [user, isAdmin])
 
@@ -215,9 +216,15 @@ export default function Navbar() {
     navigate('/login', { replace: true })
   }
 
-  const userDescriptor = isAdmin
-    ? t('Admin Command Desk', 'நிர்வாக மேடை')
-    : t('Booth {{num}} Agent', 'பூத் {{num}} ஏஜெண்ட்').replace('{{num}}', user?.boothNumber || '')
+  const userDescriptor = (() => {
+    switch (user?.role) {
+      case 'superadmin':  return t('Admin Command Desk', 'நிர்வாக மேடை')
+      case 'zonal_agent': return t('Zonal Agent', 'மண்டல முகவர்')
+      case 'ward_agent':  return `${t('Ward Agent', 'வார்டு முகவர்')} · ${user.ward || ''}`
+      case 'booth_agent': return `${t('Booth', 'பூத்')} ${user.booth_number || ''} ${t('Agent', 'முகவர்')}`
+      default:            return ''
+    }
+  })()
 
   return (
     user ? (
